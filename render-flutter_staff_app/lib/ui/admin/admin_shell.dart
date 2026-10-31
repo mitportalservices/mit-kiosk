@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staff_app/models/appointment_request.dart';
+import 'package:flutter_staff_app/models/consultation.dart';
 import 'package:flutter_staff_app/state/app_providers.dart';
+import 'package:flutter_staff_app/state/notifications_controller.dart';
 import 'package:flutter_staff_app/ui/theme.dart';
 import 'package:intl/intl.dart';
 
@@ -15,6 +19,9 @@ class AdminShell extends ConsumerStatefulWidget {
 class _AdminShellState extends ConsumerState<AdminShell> {
   int _currentSection = 0;
   bool _isDark = false;
+  Timer? _pollingTimer;
+  Timer? _popupDismissTimer;
+  String? _lastPopupId;
 
   final List<({String title, IconData icon})> _sections = const [
     (title: 'Overview', icon: Icons.dashboard_rounded),
@@ -28,9 +35,61 @@ class _AdminShellState extends ConsumerState<AdminShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() async {
+      ref.invalidate(notificationsControllerProvider);
+      await _pollAdminNotifications();
+      _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        if (mounted) _pollAdminNotifications();
+      });
+    });
+  }
+
+  Future<void> _pollAdminNotifications() async {
+    try {
+      final api = ref.read(mobileApiProvider);
+      final rawAppts = await api.getAdminAppointments();
+      final rawCons = await api.getAdminConsultations();
+      if (!mounted) return;
+
+      final appts = rawAppts
+          .whereType<Map>()
+          .map((e) => AppointmentRequest.fromJson(e.cast<String, dynamic>()))
+          .toList();
+      final cons = rawCons
+          .whereType<Map>()
+          .map((e) => Consultation.fromJson(e.cast<String, dynamic>()))
+          .toList();
+
+      ref.read(notificationsControllerProvider.notifier).syncAppointments(appts);
+      ref.read(notificationsControllerProvider.notifier).syncConsultations(cons);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    _popupDismissTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider);
     final user = me.valueOrNull;
+    final notifState = ref.watch(notificationsControllerProvider);
+    final activePopup = notifState.activePopup;
+
+    if (activePopup != null && activePopup.id != _lastPopupId) {
+      _lastPopupId = activePopup.id;
+      _popupDismissTimer?.cancel();
+      _popupDismissTimer = Timer(const Duration(seconds: 8), () {
+        if (mounted) {
+          ref.read(notificationsControllerProvider.notifier).dismissPopup();
+        }
+      });
+    }
 
     final bgColor = _isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
     final cardColor = _isDark ? const Color(0xFF1E293B) : Colors.white;
@@ -258,7 +317,93 @@ class _AdminShellState extends ConsumerState<AdminShell> {
             ),
           ),
         ),
-        body: _buildCurrentSection(),
+        body: Stack(
+          children: [
+            _buildCurrentSection(),
+            if (activePopup != null)
+              Positioned(
+                top: 12,
+                left: 16,
+                right: 16,
+                child: Material(
+                  elevation: 12,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.notifications_active_rounded,
+                          color: AppTheme.primaryColor,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                activePopup.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                activePopup.body,
+                                style: const TextStyle(
+                                  color: Color(0xFFCBD5E1),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            final isAppt = activePopup.type == 'appointment';
+                            ref
+                                .read(notificationsControllerProvider.notifier)
+                                .markRead(activePopup.id);
+                            setState(() {
+                              _currentSection = isAppt ? 3 : 4;
+                            });
+                          },
+                          child: const Text(
+                            'View',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Color(0xFF94A3B8),
+                            size: 18,
+                          ),
+                          onPressed: () {
+                            ref
+                                .read(notificationsControllerProvider.notifier)
+                                .dismissPopup();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

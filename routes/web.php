@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Route;
 
 // Visitor/Public Routes
 Route::get('/', [VisitorController::class, 'index'])->name('visitor.kiosk');
+Route::get('/mobile', function () {
+    return redirect('/mobile/index.html');
+});
 Route::get('/panorama/{waypoint}', [VisitorController::class, 'panorama'])->name('visitor.panorama');
 Route::get('/kiosk/queue', [VisitorController::class, 'queueAllWindow'])->name('visitor.queue.all');
 Route::get('/kiosk/queue/{waypoint}', [VisitorController::class, 'queueWindow'])->name('visitor.queue');

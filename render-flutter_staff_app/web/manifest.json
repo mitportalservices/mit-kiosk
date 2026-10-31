@@ -1,11 +1,11 @@
 {
-    "name": "Staff App Render",
-    "short_name": "Staff App Render",
+    "name": "MIT Staff & Admin Portal",
+    "short_name": "MIT Staff",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F8FAFC",
+    "theme_color": "#3B82F6",
+    "description": "MIT Campus Guide — Staff & Admin Mobile Portal",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
