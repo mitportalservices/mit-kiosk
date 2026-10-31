@@ -8,6 +8,7 @@ Route::get('/waypoints', [WaypointController::class, 'index']);
 
 Route::prefix('mobile')->group(function () {
     Route::post('/login', [\App\Http\Controllers\MobileAuthController::class, 'login'])->middleware('throttle:60,1');
+    Route::post('/forgot-password', [\App\Http\Controllers\MobileAuthController::class, 'forgotPassword'])->middleware('throttle:20,1');
     Route::post('/logout', [\App\Http\Controllers\MobileAuthController::class, 'logout'])->middleware('api.token');
     Route::get('/me', [\App\Http\Controllers\MobileAuthController::class, 'me'])->middleware('api.token');
 
@@ -37,6 +38,7 @@ Route::prefix('mobile')->group(function () {
         Route::get('/users', [\App\Http\Controllers\MobileAdminController::class, 'users']);
         Route::post('/users', [\App\Http\Controllers\MobileAdminController::class, 'storeUser']);
         Route::post('/users/{user}', [\App\Http\Controllers\MobileAdminController::class, 'updateUser']);
+        Route::put('/users/{user}', [\App\Http\Controllers\MobileAdminController::class, 'updateUser']);
         Route::delete('/users/{user}', [\App\Http\Controllers\MobileAdminController::class, 'destroyUser']);
 
         // Appointments
@@ -53,11 +55,13 @@ Route::prefix('mobile')->group(function () {
 
         // Feedbacks
         Route::get('/feedbacks', [\App\Http\Controllers\MobileAdminController::class, 'feedbacks']);
+        Route::put('/feedbacks/{feedback}', [\App\Http\Controllers\MobileAdminController::class, 'updateFeedback']);
         Route::delete('/feedbacks/{feedback}', [\App\Http\Controllers\MobileAdminController::class, 'destroyFeedback']);
 
         // Settings / Service Hours
         Route::get('/settings', [\App\Http\Controllers\MobileAdminController::class, 'settings']);
         Route::post('/settings', [\App\Http\Controllers\MobileAdminController::class, 'updateSettings']);
+        Route::post('/settings/test-email', [\App\Http\Controllers\MobileAdminController::class, 'testEmail']);
 
         // Activity Logs
         Route::get('/activity-logs', [\App\Http\Controllers\MobileAdminController::class, 'activityLogs']);

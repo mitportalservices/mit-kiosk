@@ -4,6 +4,7 @@ class UserMe {
   final String email;
   final String role;
   final String availabilityStatus;
+  final String? timeAvailability;
 
   const UserMe({
     required this.id,
@@ -11,6 +12,7 @@ class UserMe {
     required this.email,
     required this.role,
     required this.availabilityStatus,
+    this.timeAvailability,
   });
 
   factory UserMe.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class UserMe {
       email: (json['email'] as String?) ?? '',
       role: (json['role'] as String?) ?? '',
       availabilityStatus: (json['availability_status'] as String?) ?? 'available',
+      timeAvailability: json['time_availability'] as String?,
     );
   }
 }

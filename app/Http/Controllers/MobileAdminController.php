@@ -167,10 +167,11 @@ class MobileAdminController extends Controller
         $this->ensureAdmin($request);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'title' => 'nullable|string|max:20',
+            'title' => 'nullable|string|max:100',
             'email' => 'required|email|unique:users',
-            'password' => 'required|min:8',
+            'password' => 'required|string|min:6',
             'role' => 'required|in:admin,faculty,principal,guidance_counselor',
+            'time_availability' => 'nullable|string|max:100',
         ]);
 
         $validated['password'] = bcrypt($validated['password']);
@@ -187,12 +188,13 @@ class MobileAdminController extends Controller
     {
         $this->ensureAdmin($request);
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'title' => 'nullable|string|max:20',
-            'email' => 'required|email|unique:users,email,'.$user->id,
-            'role' => 'required|in:admin,faculty,principal,guidance_counselor',
+            'name' => 'sometimes|required|string|max:255',
+            'title' => 'nullable|string|max:100',
+            'email' => 'sometimes|required|email|unique:users,email,'.$user->id,
+            'role' => 'sometimes|required|in:admin,faculty,principal,guidance_counselor',
             'availability_status' => 'nullable|in:available,away,busy',
-            'password' => 'nullable|min:8',
+            'time_availability' => 'nullable|string|max:100',
+            'password' => 'nullable|string|min:6',
         ]);
 
         if (!empty($validated['password'])) {
@@ -370,6 +372,22 @@ class MobileAdminController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function updateFeedback(Request $request, Feedback $feedback)
+    {
+        $this->ensureAdmin($request);
+        $validated = $request->validate([
+            'rating' => 'required|string',
+            'suggestions' => 'nullable|string',
+        ]);
+
+        $feedback->update($validated);
+        $id = $feedback->id;
+
+        ActivityLog::record('update_feedback', "Admin User Updated a Feedback - ID #{$id}.", null, $request->user());
+
+        return response()->json($feedback);
+    }
+
     /** --- SETTINGS --- */
     public function settings(Request $request)
     {
@@ -396,6 +414,25 @@ class MobileAdminController extends Controller
         ActivityLog::record('update_service_hours', "Admin User Updated a Service Hours", null, $request->user());
 
         return response()->json(KioskSetting::getAllSettings());
+    }
+
+    public function testEmail(Request $request)
+    {
+        $this->ensureAdmin($request);
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        try {
+            Mail::raw('This is a test email sent from the MIT Kiosk Mobile Admin Panel to verify email/SMTP configuration.', function ($msg) use ($validated) {
+                $msg->to($validated['email'])
+                    ->subject('MIT Kiosk SMTP Test (Mobile Admin)');
+            });
+
+            return response()->json(['message' => "Test email successfully dispatched to {$validated['email']}."]);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Failed to send test email: ' . $e->getMessage()], 500);
+        }
     }
 
     /** --- ACTIVITY LOGS --- */

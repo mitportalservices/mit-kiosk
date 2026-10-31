@@ -13,7 +13,9 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _current = TextEditingController();
   final _next = TextEditingController();
+  final _timeController = TextEditingController();
   bool _saving = false;
+  bool _timeInitialized = false;
   bool _obscureCurrent = true;
   bool _obscureNext = true;
 
@@ -21,6 +23,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void dispose() {
     _current.dispose();
     _next.dispose();
+    _timeController.dispose();
     super.dispose();
   }
 
@@ -46,6 +49,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return me.when(
       data: (u) {
+        if (!_timeInitialized) {
+          _timeController.text = (u.timeAvailability ?? '').isNotEmpty ? u.timeAvailability! : '8:00 AM - 5:00 PM';
+          _timeInitialized = true;
+        }
         return ListView(
           padding: const EdgeInsets.all(24),
           children: [
@@ -124,35 +131,98 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: DropdownButtonFormField<String>(
-                  initialValue: u.availabilityStatus,
-                  decoration: const InputDecoration(
-                    labelText: 'Current Status',
-                    prefixIcon: Icon(Icons.circle_notifications_outlined),
-                  ),
-                  items: [
-                    _statusItem('available', 'Available', Colors.green),
-                    _statusItem('away', 'Away', Colors.orange),
-                    _statusItem('busy', 'Busy', Colors.red),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: u.availabilityStatus,
+                      decoration: const InputDecoration(
+                        labelText: 'Current Status',
+                        prefixIcon: Icon(Icons.circle_notifications_outlined),
+                      ),
+                      items: [
+                        _statusItem('available', 'Available', Colors.green),
+                        _statusItem('away', 'Away', Colors.orange),
+                        _statusItem('busy', 'Busy', Colors.red),
+                      ],
+                      onChanged: _saving
+                          ? null
+                          : (v) async {
+                              if (v == null) return;
+                              setState(() => _saving = true);
+                              try {
+                                await api.updateAvailability(status: v);
+                                ref.invalidate(meProvider);
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Failed to update status.')),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) setState(() => _saving = false);
+                              }
+                            },
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _timeController,
+                      decoration: InputDecoration(
+                        labelText: 'Time Availability',
+                        hintText: 'e.g. 8:00 AM - 5:00 PM',
+                        prefixIcon: const Icon(Icons.schedule_rounded),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.save_rounded, color: AppTheme.primaryColor),
+                          tooltip: 'Save Time Availability',
+                          onPressed: _saving
+                              ? null
+                              : () async {
+                                  final val = _timeController.text.trim();
+                                  if (val.isEmpty) return;
+                                  setState(() => _saving = true);
+                                  try {
+                                    await api.updateAvailability(timeAvailability: val);
+                                    ref.invalidate(meProvider);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Time availability updated successfully!')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Failed to update time availability.')),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) setState(() => _saving = false);
+                                  }
+                                },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        '8:00 AM - 5:00 PM',
+                        '7:30 AM - 4:30 PM',
+                        '9:00 AM - 6:00 PM',
+                        '1:00 PM - 5:00 PM',
+                      ].map((preset) {
+                        return ActionChip(
+                          label: Text(preset, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          backgroundColor: _timeController.text == preset
+                              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                              : null,
+                          onPressed: () {
+                            setState(() => _timeController.text = preset);
+                          },
+                        );
+                      }).toList(),
+                    ),
                   ],
-                  onChanged: _saving
-                      ? null
-                      : (v) async {
-                          if (v == null) return;
-                          setState(() => _saving = true);
-                          try {
-                            await api.updateAvailability(v);
-                            ref.invalidate(meProvider);
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Failed to update status.')),
-                              );
-                            }
-                          } finally {
-                            if (mounted) setState(() => _saving = false);
-                          }
-                        },
                 ),
               ),
             ),

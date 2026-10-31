@@ -36,13 +36,13 @@ services:
       - key: MAIL_PORT
         value: "587"
       - key: MAIL_USERNAME
-        value: alexanderalfonsoviii@gmail.com
+        value: mitportalservices@gmail.com
       - key: MAIL_PASSWORD
-        value: pfeocejuizzlofmj
+        value: sndzppycdcqzpigr
       - key: MAIL_ENCRYPTION
         value: tls
       - key: MAIL_FROM_ADDRESS
-        value: alexanderalfonsoviii@gmail.com
+        value: mitportalservices@gmail.com
       - key: MAIL_FROM_NAME
         value: "MIT Kiosk"
       - key: PRINTER_ENABLED

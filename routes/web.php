@@ -60,12 +60,13 @@ Route::prefix('admin')->middleware(['auth'])->group(function () {
         // Feedbacks
         Route::get('/feedbacks', [AdminController::class, 'feedbacks'])->name('admin.feedbacks');
         Route::get('/feedbacks/export', [AdminController::class, 'exportFeedbacks'])->name('admin.feedbacks.export');
+        Route::put('/feedbacks/{feedback}', [AdminController::class, 'updateFeedback'])->name('admin.feedbacks.update');
         Route::delete('/feedbacks/{feedback}', [AdminController::class, 'destroyFeedback'])->name('admin.feedbacks.destroy');
 
-        // Settings (Removed - redirects to Dashboard)
-        Route::get('/settings', function () {
-            return redirect()->route('admin.dashboard');
-        })->name('admin.settings');
+        // Settings
+        Route::get('/settings', [AdminController::class, 'settings'])->name('admin.settings');
+        Route::post('/settings', [AdminController::class, 'updateSettings'])->name('admin.settings.update');
+        Route::post('/settings/test-email', [AdminController::class, 'testEmail'])->name('admin.settings.test_email');
 
         // Activity Logs
         Route::get('/activity-logs', [AdminController::class, 'activityLogs'])->name('admin.activity_logs');

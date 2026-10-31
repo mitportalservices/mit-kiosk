@@ -151,10 +151,11 @@ class AdminController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'title' => 'nullable|string|max:20',
+            'title' => 'nullable|string|max:100',
             'email' => 'required|email|unique:users',
-            'password' => 'required|min:8',
+            'password' => 'required|string|min:6',
             'role' => 'required|in:admin,faculty,principal,guidance_counselor',
+            'time_availability' => 'nullable|string|max:100',
         ]);
 
         $validated['password'] = bcrypt($validated['password']);
@@ -177,11 +178,12 @@ class AdminController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'title' => 'nullable|string|max:20',
+            'title' => 'nullable|string|max:100',
             'email' => 'required|email|unique:users,email,'.$user->id,
             'role' => 'required|in:admin,faculty,principal,guidance_counselor',
             'availability_status' => 'nullable|in:available,away,busy',
-            'password' => 'nullable|min:8',
+            'time_availability' => 'nullable|string|max:100',
+            'password' => 'nullable|string|min:6',
         ]);
 
         if (!empty($validated['password'])) {
@@ -541,6 +543,21 @@ class AdminController extends Controller
         ActivityLog::record('delete_feedback', "Admin User Deleted a Feedback - ID #{$id}.");
 
         return back()->with('success', 'Feedback removed.');
+    }
+
+    public function updateFeedback(Request $request, Feedback $feedback)
+    {
+        $validated = $request->validate([
+            'rating' => 'required|string',
+            'suggestions' => 'nullable|string',
+        ]);
+
+        $feedback->update($validated);
+        $id = $feedback->id;
+
+        ActivityLog::record('update_feedback', "Admin User Updated a Feedback - ID #{$id}.");
+
+        return back()->with('success', 'Feedback updated successfully.');
     }
 
     public function exportFeedbacks(Request $request)

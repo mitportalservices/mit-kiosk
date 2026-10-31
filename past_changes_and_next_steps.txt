@@ -1,0 +1,75 @@
+================================================================================
+PAST CHANGES & NEXT STEPS SUMMARY
+Project: MIT Campus Guide Kiosk & Staff/Admin Mobile App
+Generated: October 31, 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+1. COMMITTED PAST CHANGES (GIT COMMIT HISTORY)
+--------------------------------------------------------------------------------
+- [94238ff] Change waypoint image_url and pano_url database columns to text to support long URLs
+  * Updated AdminController validation and added migration 2026_10_16_000000_change_waypoint_urls_to_text.php.
+
+- [0df92ae] Allow direct admin login with credentials, removing blocked OTP email requirement
+  * Updated AuthController.php so admins can sign in directly without getting blocked by SMTP OTP restrictions.
+
+- [1fa1157] Add dedicated local thermal printer bridge to eliminate print dialog and restore exact thermal layout
+  * Updated Launch-Kiosk.bat, PrinterService.php, visitor/kiosk.blade.php, and added scripts/local-printer-service.php.
+
+- [52a8e0d] Remove on-screen OTP code display and return secure error message
+  * Updated AuthController.php for security.
+
+- [e3c17dd] Fix 504 Gateway Timeout during login by setting SMTP timeout and adding fallback
+  * Updated AuthController.php and config/mail.php.
+
+- [99e37bc] Prevent deployments and seeders from resetting existing waypoints and users
+  * Updated DatabaseSeeder.php and scripts/00-laravel-deploy.sh to preserve existing records.
+
+- [153a8d1] Fix Now Serving empty window on completion and optimize ticket thermal printing
+  * Updated KioskPrintController.php, KioskQueueController.php, PrinterService.php, visitor/kiosk.blade.php, visitor/queue.blade.php, and Flutter mobile login/config.
+
+- [3968262] Deploy MIT Kiosk to Render with Gmail SMTP
+  * Initial full deployment setup including Activity Logs table migration (2026_09_01_000000_create_activity_logs_table.php), Kiosk Settings (2026_09_01_000001_create_kiosk_settings_table.php), Web Admin Panel, Kiosk UI, and Flutter Staff & Admin Mobile App.
+
+
+--------------------------------------------------------------------------------
+2. COMPLETED FEATURES FROM DOTHESE.MD (ALL CHECKED [/])
+--------------------------------------------------------------------------------
+[/] Remove "Professor of Mathematics" & Clean Up Titles/Activity Logs:
+    - Removed 'Professor of Mathematics' and non-honorific job titles from DatabaseSeeder.php.
+    - Updated ActivityLog::record in app/Models/ActivityLog.php to use $actor->name without prepending extra titles.
+    - Added migration database/migrations/2026_10_16_000002_clean_titles_and_activity_logs.php to clean existing users and activity_logs records.
+    - Restricted honorific displays in Web & Mobile Admin Panels to standard honorifics (Mr., Ms., Mx., Dr., Prof.).
+
+[/] Staff Time Availability (Mobile App, Web Admin Panel, Appointments & Consultations):
+    - Added `time_availability` column to `users` table (database/migrations/2026_10_16_000001_add_time_availability_to_users_table.php).
+    - Staff can set their Time Availability (e.g., "8:00 AM - 5:00 PM") on their Mobile App Profile screen with quick-select preset chips.
+    - Admins can view and set staff Time Availability in both the Web Admin Panel and Mobile Admin Panel.
+    - Time Availability is displayed below the staff member's status badge on both Appointment and Consultation screens (Web & Mobile).
+
+[/] Fixed Staff Password Change in Mobile Admin Panel:
+    - Fixed validation failure in MobileAdminController@updateUser and AdminController@updateUser where legacy long titles (>20 chars) caused HTTP 422 errors when changing a staff member's password.
+    - Fixed _showAddEditDialog in render-flutter_staff_app/lib/ui/admin/admin_shell.dart to sanitize honorific values, keep the dialog open while saving, and display exact validation feedback.
+    - Added a dedicated Quick Change Password button (Key icon) on each account row in the Mobile Admin Accounts tab.
+
+[/] Added "Forgot Password" via Email on Mobile App:
+    - Created AccountRecoveryMail (app/Mail/AccountRecoveryMail.php) and HTML email template (resources/views/emails/account_recovery.blade.php) that sends all account information (Full Name, Email, Role, Status, Time Availability, and a new password) to the user's registered email address.
+    - Added POST /api/mobile/forgot-password in MobileAuthController.php and routes/api.php with ActivityLog tracking.
+    - Added "Forgot Password?" button and recovery dialog to render-flutter_staff_app/lib/ui/screens/login_screen.dart.
+
+[/] Updated Gmail SMTP & GitHub Repository:
+    - Updated render.yaml and .env to use mitportalservices@gmail.com and the new App Password.
+    - Added mitportalservices@gmail.com admin account to DatabaseSeeder.php.
+    - Updated Git remote to https://github.com/mitportalservices/mit-kiosk.git.
+
+
+--------------------------------------------------------------------------------
+3. NEXT STEPS FOR RENDER DEPLOYMENT
+--------------------------------------------------------------------------------
+1. Log in to your new Render account (https://render.com).
+2. Click "New +" -> "Blueprint" and select your `mitportalservices/mit-kiosk` GitHub repository.
+3. Click "Apply" to deploy the PostgreSQL database and Docker Web Service automatically.
+4. Once deployed, copy your new Render `.onrender.com` URL and update:
+   - `TARGET_URL` in `Launch-Kiosk.bat`
+   - Server URL in the Mobile App (via the "Connected to:" link on the login screen, or `defaultValue` in `render-flutter_staff_app/lib/config.dart`).
+================================================================================

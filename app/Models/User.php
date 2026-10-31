@@ -23,6 +23,7 @@ class User extends Authenticatable
         'password',
         'role',
         'availability_status',
+        'time_availability',
         'otp_code',
         'otp_expires_at',
     ];

@@ -24,6 +24,17 @@ class DatabaseSeeder extends Seeder
         );
 
         User::firstOrCreate(
+            ['email' => 'mitportalservices@gmail.com'],
+            [
+                'name' => 'MIT Portal Admin',
+                'title' => null,
+                'password' => Hash::make('admin123'),
+                'role' => 'admin',
+                'availability_status' => 'available',
+            ]
+        );
+
+        User::firstOrCreate(
             ['email' => 'bryecastro@gmail.com'],
             [
                 'name' => 'Brye Castro',
@@ -37,7 +48,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'johndoe@mit-maps.com'],
             [
                 'name' => 'Dr. John Doe',
-                'title' => 'Dean of Computer Science',
+                'title' => null,
                 'password' => Hash::make('faculty_password_123'),
                 'role' => 'faculty',
                 'availability_status' => 'available',
@@ -48,7 +59,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'janesmith@mit-maps.com'],
             [
                 'name' => 'Prof. Jane Smith',
-                'title' => 'IT Department Chair',
+                'title' => null,
                 'password' => Hash::make('faculty_password_123'),
                 'role' => 'faculty',
                 'availability_status' => 'busy',
@@ -59,7 +70,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'dishrexd22@yahoo.com'],
             [
                 'name' => 'Faculty Dishrexd',
-                'title' => 'Dean of Engineering',
+                'title' => null,
                 'password' => Hash::make('Shark123'),
                 'role' => 'faculty',
                 'availability_status' => 'available',
@@ -70,7 +81,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'katemalona@gmail.com'],
             [
                 'name' => 'Kate Malona',
-                'title' => 'Guidance Specialist',
+                'title' => null,
                 'password' => Hash::make('bayadnyodaw123'),
                 'role' => 'faculty',
                 'availability_status' => 'available',
@@ -81,7 +92,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'alexanderalfonsoviii@gmail.com'],
             [
                 'name' => 'Alexander Alfonso VIII',
-                'title' => 'Professor of Mathematics',
+                'title' => null,
                 'password' => Hash::make('admin123'),
                 'role' => 'admin',
                 'availability_status' => 'available',
@@ -92,7 +103,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'principal@mit-maps.com'],
             [
                 'name' => 'Dr. Albus Dumbledore',
-                'title' => 'School Principal',
+                'title' => null,
                 'password' => Hash::make('principal_password_123'),
                 'role' => 'principal',
                 'availability_status' => 'available',
@@ -103,7 +114,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'counselor@mit-maps.com'],
             [
                 'name' => 'Ms. Sarah Jenkins',
-                'title' => 'Lead Guidance Counselor',
+                'title' => null,
                 'password' => Hash::make('counselor_password_123'),
                 'role' => 'guidance_counselor',
                 'availability_status' => 'available',

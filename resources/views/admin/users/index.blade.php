@@ -113,7 +113,7 @@
                             <span class="material-symbols-outlined text-5xl">account_circle</span>
                         </div>
                         <div class="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-white dark:bg-slate-800 border-4 border-white dark:border-slate-900 shadow-lg flex items-center justify-center">
-                            <span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                            <span class="w-2.5 h-2.5 rounded-full {{ $user->availability_status === 'away' ? 'bg-orange-500' : ($user->availability_status === 'busy' ? 'bg-rose-500' : 'bg-green-500') }}" title="{{ ucfirst($user->availability_status ?? 'available') }}"></span>
                         </div>
                     </div>
                     <div>
@@ -130,7 +130,15 @@
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between md:justify-end gap-8 w-full md:w-auto">
+                <div class="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto">
+                    <div class="text-left md:text-right">
+                        <span class="block text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-slate-600 mb-2 leading-none">Time Availability</span>
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center md:justify-end gap-1">
+                            <span class="material-symbols-outlined text-sm text-primary">schedule</span>
+                            {{ $user->time_availability ?: '8:00 AM - 5:00 PM' }}
+                        </span>
+                    </div>
+
                     <div class="text-left md:text-right">
                         <span class="block text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-slate-600 mb-2 leading-none">Security Role</span>
                         <span class="px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase shadow-sm inline-block {{ $user->role == 'admin' ? 'bg-slate-800 dark:bg-slate-700 text-white' : 'bg-blue-50 dark:bg-blue-900/20 text-primary dark:text-primary border border-blue-100 dark:border-blue-900/30' }}">

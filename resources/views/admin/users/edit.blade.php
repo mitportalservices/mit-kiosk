@@ -97,8 +97,20 @@
                                         <span class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>
                                         <span class="text-[10px] font-black uppercase tracking-widest">Busy</span>
                                     </div>
-                                </label>
                             </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Time Availability</label>
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600">schedule</span>
+                                <input type="text" name="time_availability" value="{{ old('time_availability', $user->time_availability ?? '8:00 AM - 5:00 PM') }}"
+                                    class="w-full pl-14 pr-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-2 border-transparent rounded-[1.25rem] text-slate-800 dark:text-slate-100 focus:border-primary/20 dark:focus:border-blue-500/30 focus:bg-white dark:focus:bg-slate-800 transition-all font-bold placeholder:text-slate-300 dark:placeholder:text-slate-600" placeholder="e.g. 8:00 AM - 5:00 PM">
+                            </div>
+                            <p class="mt-3 text-[10px] text-slate-400 dark:text-slate-500 font-bold flex items-center gap-1 uppercase tracking-widest">
+                                <span class="material-symbols-outlined text-[14px]">info</span>
+                                Displayed on appointment & consultation screens below status badge
+                            </p>
                         </div>
                     </div>
                 </section>

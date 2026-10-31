@@ -65,8 +65,18 @@
                                     <div class="font-bold text-slate-800 dark:text-slate-200">{{ $a->created_at->format('M d, Y') }}</div>
                                     <div class="text-[10px] opacity-60 uppercase">{{ $a->created_at->format('h:i A') }}</div>
                                 </td>
-                                <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">
-                                    {{ $a->targetUser->title ?? '' }} {{ $a->targetUser->name }}
+                                <td class="px-6 py-4 text-slate-800 dark:text-slate-200">
+                                    <div class="font-bold">{{ $a->targetUser->name ?? 'Unassigned' }}</div>
+                                    @if($a->targetUser)
+                                        <div class="mt-1 flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full {{ $a->targetUser->availability_status === 'away' ? 'bg-orange-500' : ($a->targetUser->availability_status === 'busy' ? 'bg-rose-500' : 'bg-green-500') }}"></span>
+                                            <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ ucfirst($a->targetUser->availability_status ?? 'available') }}</span>
+                                        </div>
+                                        <div class="mt-0.5 text-[10px] font-bold text-primary flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-[12px]">schedule</span>
+                                            {{ $a->targetUser->time_availability ?: '8:00 AM - 5:00 PM' }}
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4 text-slate-700 dark:text-slate-300">
                                     <div class="font-bold">{{ $a->requester_honorific }} {{ $a->requester_name }}</div>

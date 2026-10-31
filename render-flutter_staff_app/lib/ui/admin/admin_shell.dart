@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staff_app/state/app_providers.dart';
@@ -23,6 +24,7 @@ class _AdminShellState extends ConsumerState<AdminShell> {
     (title: 'Consultations', icon: Icons.forum_rounded),
     (title: 'Feedback', icon: Icons.rate_review_rounded),
     (title: 'Activity Logs', icon: Icons.history_rounded),
+    (title: 'Settings', icon: Icons.settings_rounded),
   ];
 
   @override
@@ -277,6 +279,8 @@ class _AdminShellState extends ConsumerState<AdminShell> {
         return const _AdminFeedbackTab();
       case 6:
         return const _AdminActivityLogsTab();
+      case 7:
+        return const _AdminSettingsTab();
       default:
         return const Center(child: Text('Section not found'));
     }
@@ -351,6 +355,8 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
               _buildStatCard('Active Waypoints', '${counts['waypoints'] ?? 0}', Icons.location_on_rounded, const Color(0xFF10B981), () => widget.onNavigate(1)),
               _buildStatCard('Appointments', '${counts['appointments'] ?? 0}', Icons.calendar_today_rounded, const Color(0xFF8B5CF6), () => widget.onNavigate(3)),
               _buildStatCard('Consultations', '${counts['consultations'] ?? 0}', Icons.forum_rounded, const Color(0xFFF59E0B), () => widget.onNavigate(4)),
+              _buildStatCard('Kiosk Settings', 'Configure', Icons.tune_rounded, const Color(0xFF6366F1), () => widget.onNavigate(7)),
+              _buildStatCard('Activity Logs', 'Audit Trail', Icons.history_rounded, const Color(0xFF0EA5E9), () => widget.onNavigate(6)),
             ],
           ),
 
@@ -757,14 +763,141 @@ class _AdminAccountsTabState extends ConsumerState<_AdminAccountsTab> {
     if (mounted) setState(() => _loading = false);
   }
 
+  String _extractDioError(Object e) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map) {
+        if (data['errors'] is Map) {
+          final errors = data['errors'] as Map;
+          for (final val in errors.values) {
+            if (val is List && val.isNotEmpty) {
+              return val.first.toString();
+            }
+          }
+        }
+        if (data['message'] != null) {
+          return data['message'].toString();
+        }
+      }
+    }
+    return e.toString();
+  }
+
+  void _showChangePasswordDialog(Map<String, dynamic> user) {
+    final passCtrl = TextEditingController();
+    bool obscure = true;
+    bool saving = false;
+    String? errText;
+    final userId = (user['id'] as num).toInt();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: Text('Change Password — ${user['name'] ?? ''}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: passCtrl,
+                obscureText: obscure,
+                enabled: !saving,
+                decoration: InputDecoration(
+                  labelText: 'New Password (min 6 chars)',
+                  prefixIcon: const Icon(Icons.lock_reset_rounded),
+                  suffixIcon: IconButton(
+                    icon: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                    onPressed: () => setDlgState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+              if (errText != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  errText!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final newPass = passCtrl.text.trim();
+                      if (newPass.length < 6) {
+                        setDlgState(() => errText = 'Password must be at least 6 characters.');
+                        return;
+                      }
+                      setDlgState(() {
+                        saving = true;
+                        errText = null;
+                      });
+                      try {
+                        await ref.read(mobileApiProvider).updateAdminUser(userId, {
+                          'password': newPass,
+                        });
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        _load();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFF10B981),
+                              content: Text('Password updated for ${user['name']}.'),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDlgState(() {
+                          saving = false;
+                          errText = _extractDioError(e);
+                        });
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Update Password'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showAddEditDialog([Map<String, dynamic>? user]) {
     final isEdit = user != null;
-    final nameCtrl = TextEditingController(text: user?['name'] ?? '');
-    final titleCtrl = TextEditingController(text: user?['title'] ?? '');
-    final emailCtrl = TextEditingController(text: user?['email'] ?? '');
+    const validTitles = ['', 'Mr.', 'Ms.', 'Mx.', 'Dr.', 'Prof.'];
+    final rawTitle = (user?['title'] ?? '').toString().trim();
+    String selectedTitle = validTitles.contains(rawTitle) ? rawTitle : '';
+
+    final nameCtrl = TextEditingController(text: (user?['name'] ?? '').toString());
+    final emailCtrl = TextEditingController(text: (user?['email'] ?? '').toString());
+    final timeCtrl = TextEditingController(
+      text: (user?['time_availability'] ?? '8:00 AM - 5:00 PM').toString(),
+    );
     final passCtrl = TextEditingController();
-    String role = user?['role'] ?? 'faculty';
-    String status = user?['availability_status'] ?? 'available';
+
+    const validRoles = ['faculty', 'principal', 'guidance_counselor', 'admin'];
+    final rawRole = (user?['role'] ?? 'faculty').toString();
+    String role = validRoles.contains(rawRole) ? rawRole : 'faculty';
+
+    const validStatuses = ['available', 'busy', 'away'];
+    final rawStatus = (user?['availability_status'] ?? 'available').toString();
+    String status = validStatuses.contains(rawStatus) ? rawStatus : 'available';
+
+    bool obscurePass = true;
+    bool saving = false;
+    String? errText;
 
     showDialog(
       context: context,
@@ -775,16 +908,40 @@ class _AdminAccountsTabState extends ConsumerState<_AdminAccountsTab> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Full Name')),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedTitle,
+                  decoration: const InputDecoration(labelText: 'Honorific Title'),
+                  items: const [
+                    DropdownMenuItem(value: '', child: Text('None')),
+                    DropdownMenuItem(value: 'Mr.', child: Text('Mr.')),
+                    DropdownMenuItem(value: 'Ms.', child: Text('Ms.')),
+                    DropdownMenuItem(value: 'Mx.', child: Text('Mx.')),
+                    DropdownMenuItem(value: 'Dr.', child: Text('Dr.')),
+                    DropdownMenuItem(value: 'Prof.', child: Text('Prof.')),
+                  ],
+                  onChanged: (v) => setDlgState(() => selectedTitle = v ?? ''),
+                ),
                 const SizedBox(height: 10),
-                TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Title / Position (e.g. Dean)')),
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Full Name')),
                 const SizedBox(height: 10),
                 TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email Address')),
                 const SizedBox(height: 10),
                 TextField(
+                  controller: timeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Time Availability (e.g. 8:00 AM - 5:00 PM)',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
                   controller: passCtrl,
+                  obscureText: obscurePass,
                   decoration: InputDecoration(
-                    labelText: isEdit ? 'New Password (leave blank to keep)' : 'Password (min 8 chars)',
+                    labelText: isEdit ? 'New Password (leave blank to keep)' : 'Password (min 6 chars)',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                      onPressed: () => setDlgState(() => obscurePass = !obscurePass),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -812,34 +969,87 @@ class _AdminAccountsTabState extends ConsumerState<_AdminAccountsTab> {
                     onChanged: (v) => setDlgState(() => status = v!),
                   ),
                 ],
+                if (errText != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    errText!,
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ],
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-              onPressed: () async {
-                final payload = {
-                  'name': nameCtrl.text.trim(),
-                  'title': titleCtrl.text.trim(),
-                  'email': emailCtrl.text.trim(),
-                  'role': role,
-                  if (passCtrl.text.isNotEmpty) 'password': passCtrl.text,
-                  if (isEdit) 'availability_status': status,
-                };
-                Navigator.pop(ctx);
-                try {
-                  if (isEdit) {
-                    await ref.read(mobileApiProvider).updateAdminUser(user['id'], payload);
-                  } else {
-                    await ref.read(mobileApiProvider).createAdminUser(payload);
-                  }
-                  _load();
-                } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              },
-              child: Text(isEdit ? 'Save Changes' : 'Create Account'),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final name = nameCtrl.text.trim();
+                      final email = emailCtrl.text.trim();
+                      final pass = passCtrl.text.trim();
+                      if (name.isEmpty || email.isEmpty) {
+                        setDlgState(() => errText = 'Name and email are required.');
+                        return;
+                      }
+                      if (!isEdit && pass.length < 6) {
+                        setDlgState(() => errText = 'Password must be at least 6 characters.');
+                        return;
+                      }
+                      if (isEdit && pass.isNotEmpty && pass.length < 6) {
+                        setDlgState(() => errText = 'New password must be at least 6 characters.');
+                        return;
+                      }
+
+                      final payload = {
+                        'name': name,
+                        'title': selectedTitle.isNotEmpty ? selectedTitle : null,
+                        'email': email,
+                        'role': role,
+                        'time_availability': timeCtrl.text.trim().isNotEmpty ? timeCtrl.text.trim() : null,
+                        if (pass.isNotEmpty) 'password': pass,
+                        if (isEdit) 'availability_status': status,
+                      };
+
+                      setDlgState(() {
+                        saving = true;
+                        errText = null;
+                      });
+
+                      try {
+                        if (isEdit) {
+                          final userId = (user['id'] as num).toInt();
+                          await ref.read(mobileApiProvider).updateAdminUser(userId, payload);
+                        } else {
+                          await ref.read(mobileApiProvider).createAdminUser(payload);
+                        }
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        _load();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFF10B981),
+                              content: Text(isEdit ? 'Account updated successfully!' : 'Account created successfully!'),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDlgState(() {
+                          saving = false;
+                          errText = _extractDioError(e);
+                        });
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(isEdit ? 'Save Changes' : 'Create Account'),
             ),
           ],
         ),
@@ -902,13 +1112,21 @@ class _AdminAccountsTabState extends ConsumerState<_AdminAccountsTab> {
                   ],
                 ),
                 title: Text(
-                  u['name'] ?? '',
+                  '${['Mr.', 'Ms.', 'Mx.', 'Dr.', 'Prof.'].contains(u['title']) ? '${u['title']} ' : ''}${u['name'] ?? ''}',
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                 ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(u['email'] ?? '', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                    if ((u['time_availability'] as String?)?.isNotEmpty == true)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '⏰ ${u['time_availability']}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                        ),
+                      ),
                     const SizedBox(height: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -931,7 +1149,13 @@ class _AdminAccountsTabState extends ConsumerState<_AdminAccountsTab> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
+                      icon: const Icon(Icons.key_rounded, color: Color(0xFFF59E0B), size: 20),
+                      tooltip: 'Change Password',
+                      onPressed: () => _showChangePasswordDialog(u),
+                    ),
+                    IconButton(
                       icon: const Icon(Icons.edit_rounded, color: AppTheme.primaryColor, size: 20),
+                      tooltip: 'Edit Account',
                       onPressed: () => _showAddEditDialog(u),
                     ),
                     IconButton(
@@ -1276,6 +1500,71 @@ class _AdminFeedbackTabState extends ConsumerState<_AdminFeedbackTab> {
     if (mounted) setState(() => _loading = false);
   }
 
+  void _showEditFeedbackDialog(Map<String, dynamic> fb) {
+    String rating = fb['rating'] ?? 'Satisfied';
+    final suggCtrl = TextEditingController(text: fb['suggestions'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Edit Feedback'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: rating,
+                decoration: const InputDecoration(labelText: 'Rating'),
+                items: const [
+                  DropdownMenuItem(value: 'Very Satisfied', child: Text('😄 Very Satisfied')),
+                  DropdownMenuItem(value: 'Satisfied', child: Text('🙂 Satisfied')),
+                  DropdownMenuItem(value: 'Neutral', child: Text('😐 Neutral')),
+                  DropdownMenuItem(value: 'Dissatisfied', child: Text('🙁 Dissatisfied')),
+                  DropdownMenuItem(value: 'Very Dissatisfied', child: Text('😞 Very Dissatisfied')),
+                ],
+                onChanged: (v) => setDlgState(() => rating = v!),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: suggCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: 'Suggestions / Comments'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  await ref.read(mobileApiProvider).updateAdminFeedback(
+                    fb['id'],
+                    rating: rating,
+                    suggestions: suggCtrl.text.trim().isEmpty ? null : suggCtrl.text.trim(),
+                  );
+                  _load();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Feedback updated successfully.')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error updating feedback: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -1311,25 +1600,36 @@ class _AdminFeedbackTabState extends ConsumerState<_AdminFeedbackTab> {
                   ),
                 ],
               ),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_rounded, color: Colors.redAccent, size: 20),
-                onPressed: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (b) => AlertDialog(
-                      title: const Text('Delete Feedback'),
-                      content: const Text('Delete this feedback submission?'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(b, false), child: const Text('Cancel')),
-                        FilledButton(onPressed: () => Navigator.pop(b, true), child: const Text('Delete')),
-                      ],
-                    ),
-                  );
-                  if (confirm == true) {
-                    await ref.read(mobileApiProvider).deleteAdminFeedback(fb['id']);
-                    _load();
-                  }
-                },
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_rounded, color: AppTheme.primaryColor, size: 20),
+                    onPressed: () => _showEditFeedbackDialog(fb),
+                    tooltip: 'Edit Feedback',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_rounded, color: Colors.redAccent, size: 20),
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (b) => AlertDialog(
+                          title: const Text('Delete Feedback'),
+                          content: const Text('Delete this feedback submission?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(b, false), child: const Text('Cancel')),
+                            FilledButton(onPressed: () => Navigator.pop(b, true), child: const Text('Delete')),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await ref.read(mobileApiProvider).deleteAdminFeedback(fb['id']);
+                        _load();
+                      }
+                    },
+                    tooltip: 'Delete Feedback',
+                  ),
+                ],
               ),
             ),
           );
@@ -1525,5 +1825,465 @@ String _ratingEmoji(String rating) {
       return '😞';
     default:
       return '💬';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 8. SETTINGS & SERVICE HOURS TAB
+// ---------------------------------------------------------------------------
+class _AdminSettingsTab extends ConsumerStatefulWidget {
+  const _AdminSettingsTab();
+
+  @override
+  ConsumerState<_AdminSettingsTab> createState() => _AdminSettingsTabState();
+}
+
+class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
+  bool _loading = true;
+  bool _saving = false;
+  bool _testingEmail = false;
+
+  final TextEditingController _openTimeCtrl = TextEditingController(text: '08:00');
+  final TextEditingController _closeTimeCtrl = TextEditingController(text: '17:00');
+  final TextEditingController _daysCtrl = TextEditingController(text: 'Monday - Friday');
+  final TextEditingController _titleCtrl = TextEditingController(text: 'Campus Guide - MIT');
+  final TextEditingController _emailCtrl = TextEditingController(text: 'support@mit-maps.com');
+  final TextEditingController _testEmailCtrl = TextEditingController();
+  String _status = 'online';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final res = await ref.read(mobileApiProvider).getAdminSettings();
+      if (mounted) {
+        setState(() {
+          _openTimeCtrl.text = res['service_hours_start'] ?? '08:00';
+          _closeTimeCtrl.text = res['service_hours_end'] ?? '17:00';
+          _daysCtrl.text = res['service_days'] ?? 'Monday - Friday';
+          _titleCtrl.text = res['kiosk_title'] ?? 'Campus Guide - MIT';
+          _status = res['kiosk_status'] ?? 'online';
+          _emailCtrl.text = res['contact_email'] ?? 'support@mit-maps.com';
+          if (_testEmailCtrl.text.isEmpty) {
+            _testEmailCtrl.text = res['contact_email'] ?? 'admin@mit.edu';
+          }
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final payload = {
+        'service_hours_start': _openTimeCtrl.text.trim(),
+        'service_hours_end': _closeTimeCtrl.text.trim(),
+        'service_days': _daysCtrl.text.trim(),
+        'kiosk_title': _titleCtrl.text.trim(),
+        'kiosk_status': _status,
+        'contact_email': _emailCtrl.text.trim(),
+      };
+      await ref.read(mobileApiProvider).updateAdminSettings(payload);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF10B981),
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Kiosk settings and service hours updated successfully.', style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text('Failed to update settings: $e'),
+          ),
+        );
+      }
+    }
+    if (mounted) setState(() => _saving = false);
+  }
+
+  Future<void> _sendTestEmail() async {
+    final email = _testEmailCtrl.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a recipient email address.')),
+      );
+      return;
+    }
+
+    setState(() => _testingEmail = true);
+    try {
+      final res = await ref.read(mobileApiProvider).testAdminEmail(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF10B981),
+            content: Text(res['message'] ?? 'Test email sent successfully!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text('Failed to send test email: $e'),
+          ),
+        );
+      }
+    }
+    if (mounted) setState(() => _testingEmail = false);
+  }
+
+  Future<void> _pickTime(TextEditingController ctrl) async {
+    final parts = ctrl.text.split(':');
+    final initialTime = TimeOfDay(
+      hour: int.tryParse(parts.firstOrNull ?? '8') ?? 8,
+      minute: int.tryParse(parts.elementAtOrNull(1) ?? '0') ?? 0,
+    );
+
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+    if (picked != null) {
+      final h = picked.hour.toString().padLeft(2, '0');
+      final m = picked.minute.toString().padLeft(2, '0');
+      ctrl.text = '$h:$m';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          // Header
+          const Text(
+            'Kiosk Settings',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Configure operating service hours, kiosk branding, and availability status.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 20),
+
+          // 1. Service Hours Configuration Card
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.schedule_rounded, color: AppTheme.primaryColor, size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Service Hours Configuration',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                            ),
+                            Text(
+                              'Define active hours for campus consultations and appointments.',
+                              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _openTimeCtrl,
+                          readOnly: true,
+                          onTap: () => _pickTime(_openTimeCtrl),
+                          decoration: InputDecoration(
+                            labelText: 'Opening Time',
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.access_time_rounded),
+                              onPressed: () => _pickTime(_openTimeCtrl),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _closeTimeCtrl,
+                          readOnly: true,
+                          onTap: () => _pickTime(_closeTimeCtrl),
+                          decoration: InputDecoration(
+                            labelText: 'Closing Time',
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.access_time_rounded),
+                              onPressed: () => _pickTime(_closeTimeCtrl),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _daysCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Operating Service Days',
+                      hintText: 'e.g. Monday - Friday',
+                      prefixIcon: Icon(Icons.calendar_month_rounded),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 2. Kiosk System & Display Card
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.display_settings_rounded, color: Color(0xFF6366F1), size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Kiosk System & Display',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                            ),
+                            Text(
+                              'General kiosk parameters and system operating status.',
+                              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _titleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Kiosk Title Display',
+                      prefixIcon: Icon(Icons.branding_watermark_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    initialValue: _status,
+                    decoration: const InputDecoration(
+                      labelText: 'Operating Status',
+                      prefixIcon: Icon(Icons.power_settings_new_rounded),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'online', child: Text('🟢 Online (Normal Operation)')),
+                      DropdownMenuItem(value: 'maintenance', child: Text('🟡 Maintenance Mode')),
+                      DropdownMenuItem(value: 'offline', child: Text('🔴 Offline')),
+                    ],
+                    onChanged: (v) => setState(() => _status = v!),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Support Contact Email',
+                      prefixIcon: Icon(Icons.contact_mail_rounded),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Save Button
+          FilledButton.icon(
+            onPressed: _saving ? null : _save,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              elevation: 4,
+            ),
+            icon: _saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Icon(Icons.save_rounded, size: 22),
+            label: Text(
+              _saving ? 'Saving Settings…' : 'Update Service Hours & Settings',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // 3. Email & SMTP Diagnostics Card
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.mark_email_read_rounded, color: Color(0xFF10B981), size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Email & SMTP Diagnostics',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                            ),
+                            Text(
+                              'Verify email credentials and test sending real emails.',
+                              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('MAIL DRIVER', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFF64748B))),
+                              SizedBox(height: 2),
+                              Text('SMTP', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('PORT / SECURITY', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFF64748B))),
+                              SizedBox(height: 2),
+                              Text('587 (TLS)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _testEmailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Test Recipient Email',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _testingEmail ? null : _sendTestEmail,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        side: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                        foregroundColor: const Color(0xFF10B981),
+                      ),
+                      icon: _testingEmail
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)))
+                          : const Icon(Icons.send_rounded, size: 18),
+                      label: Text(
+                        _testingEmail ? 'Sending Test Email…' : 'Send Test Email',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
   }
 }

@@ -207,7 +207,30 @@ class _ConsultationCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                StatusChip(label: item.status.toUpperCase()),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    StatusChip(label: item.status.toUpperCase()),
+                    if ((item.assignedUserTimeAvailability ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.schedule_rounded, size: 12, color: AppTheme.primaryColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            item.assignedUserTimeAvailability!,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
             

@@ -16,7 +16,7 @@ class MobileAppointmentsController extends Controller
         $user = $request->user();
 
         $items = AppointmentRequest::query()
-            ->with(['waypoint:id,name'])
+            ->with(['waypoint:id,name', 'targetUser:id,name,role,availability_status,time_availability'])
             ->where('target_user_id', $user->id)
             ->orderByDesc('created_at')
             ->get();
@@ -25,6 +25,9 @@ class MobileAppointmentsController extends Controller
             return [
                 'id' => $a->id,
                 'target_user_id' => $a->target_user_id,
+                'target_user_name' => $a->targetUser?->name,
+                'target_user_status' => $a->targetUser?->availability_status,
+                'target_user_time_availability' => $a->targetUser?->time_availability,
                 'waypoint_id' => $a->waypoint_id,
                 'waypoint_name' => $a->waypoint?->name,
                 'requester_type' => $a->requester_type,

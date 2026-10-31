@@ -136,6 +136,7 @@ class KioskQueueController extends Controller
                     'title' => $staff->title,
                     'role' => $staff->role,
                     'availability_status' => $staff->availability_status ?? 'available',
+                    'time_availability' => $staff->time_availability,
                 ] : null,
                 'current' => $current ? $formatTicket($current, $role) : null,
                 'up_next' => $upNext->map(fn ($r) => $formatTicket($r, $role))->values(),

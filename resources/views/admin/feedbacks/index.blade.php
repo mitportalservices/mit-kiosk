@@ -74,13 +74,19 @@
                                     <div class="text-[10px] opacity-60 uppercase">{{ $feedback->created_at->format('h:i A') }}</div>
                                 </td>
                                 <td class="px-6 py-4 text-right">
-                                    <form action="{{ route('admin.feedbacks.destroy', $feedback) }}" method="POST" onsubmit="return confirm('Delete this feedback entry?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all" title="Delete Feedback">
-                                            <span class="material-symbols-outlined text-lg">delete</span>
+                                    <div class="flex items-center justify-end gap-1">
+                                        <button type="button" onclick="openEditModal({{ $feedback->id }}, '{{ addslashes($feedback->rating) }}', '{{ addslashes($feedback->suggestions ?? '') }}')"
+                                            class="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all" title="Edit Feedback">
+                                            <span class="material-symbols-outlined text-lg">edit</span>
                                         </button>
-                                    </form>
+                                        <form action="{{ route('admin.feedbacks.destroy', $feedback) }}" method="POST" onsubmit="return confirm('Delete this feedback entry?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all" title="Delete Feedback">
+                                                <span class="material-symbols-outlined text-lg">delete</span>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -100,4 +106,69 @@
         </div>
     </div>
 </main>
+
+<!-- Edit Feedback Modal -->
+<div id="editFeedbackModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in duration-200">
+        <div class="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <h3 class="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">edit_note</span>
+                Edit Feedback
+            </h3>
+            <button type="button" onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <form id="editFeedbackForm" method="POST" class="space-y-4">
+            @csrf
+            @method('PUT')
+
+            <div>
+                <label class="block text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Rating</label>
+                <select id="editRating" name="rating" required
+                    class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="Very Satisfied">😄 Very Satisfied</option>
+                    <option value="Satisfied">🙂 Satisfied</option>
+                    <option value="Neutral">😐 Neutral</option>
+                    <option value="Dissatisfied">🙁 Dissatisfied</option>
+                    <option value="Very Dissatisfied">😞 Very Dissatisfied</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Suggestions / Comments</label>
+                <textarea id="editSuggestions" name="suggestions" rows="4"
+                    class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="User suggestion or comments..."></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-3">
+                <button type="button" onclick="closeEditModal()"
+                    class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-extrabold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+                    Cancel
+                </button>
+                <button type="submit"
+                    class="px-6 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-extrabold shadow-lg shadow-primary/20 transition-all">
+                    Update Feedback
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditModal(id, rating, suggestions) {
+        const modal = document.getElementById('editFeedbackModal');
+        const form = document.getElementById('editFeedbackForm');
+        form.action = `/admin/feedbacks/${id}`;
+        document.getElementById('editRating').value = rating;
+        document.getElementById('editSuggestions').value = suggestions;
+        modal.classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editFeedbackModal').classList.add('hidden');
+    }
+</script>
 @endsection

@@ -44,7 +44,7 @@ class ActivityLog extends Model
         return static::create([
             'user_id' => $actor?->id,
             'user_role' => $actor?->role ?? 'system',
-            'user_name' => $actor ? trim(($actor->title ? $actor->title . ' ' : '') . $actor->name) : 'System',
+            'user_name' => $actor ? $actor->name : 'System',
             'action' => $action,
             'description' => $description,
             'details' => $details,

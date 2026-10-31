@@ -34,6 +34,17 @@ class MobileApi {
     await _dio.post('/api/mobile/logout');
   }
 
+  Future<String> forgotPassword({required String email}) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/mobile/forgot-password',
+      data: {
+        'email': email,
+      },
+    );
+    return (res.data?['message'] as String?) ??
+        'Account information and new password sent to your email.';
+  }
+
   // --- Staff Operations ---
   Future<List<AppointmentRequest>> listAppointments() async {
     final res = await _dio.get<List<dynamic>>('/api/mobile/appointments');
@@ -89,14 +100,15 @@ class MobileApi {
     return Consultation.fromJson(res.data ?? <String, dynamic>{});
   }
 
-  Future<String> updateAvailability(String status) async {
+  Future<Map<String, dynamic>> updateAvailability({String? status, String? timeAvailability}) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/mobile/profile/availability',
       data: {
-        'availability_status': status,
+        if (status != null) 'availability_status': status,
+        if (timeAvailability != null) 'time_availability': timeAvailability,
       },
     );
-    return (res.data?['availability_status'] as String?) ?? status;
+    return res.data ?? <String, dynamic>{};
   }
 
   Future<void> changePassword({
@@ -198,6 +210,16 @@ class MobileApi {
     await _dio.delete('/api/mobile/admin/feedbacks/$id');
   }
 
+  Future<void> updateAdminFeedback(int id, {required String rating, String? suggestions}) async {
+    await _dio.put(
+      '/api/mobile/admin/feedbacks/$id',
+      data: {
+        'rating': rating,
+        'suggestions': suggestions,
+      },
+    );
+  }
+
   Future<Map<String, dynamic>> getAdminSettings() async {
     final res = await _dio.get<Map<String, dynamic>>('/api/mobile/admin/settings');
     return res.data ?? <String, dynamic>{};
@@ -205,6 +227,14 @@ class MobileApi {
 
   Future<Map<String, dynamic>> updateAdminSettings(Map<String, dynamic> data) async {
     final res = await _dio.post<Map<String, dynamic>>('/api/mobile/admin/settings', data: data);
+    return res.data ?? <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> testAdminEmail(String email) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/mobile/admin/settings/test-email',
+      data: {'email': email},
+    );
     return res.data ?? <String, dynamic>{};
   }
 

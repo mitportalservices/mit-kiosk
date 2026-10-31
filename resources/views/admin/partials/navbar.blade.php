@@ -99,6 +99,11 @@
                 <span class="material-symbols-outlined text-xl">history</span>
                 <span>Activity Logs</span>
             </a>
+            <a class="flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-sm transition-all {{ Route::is('admin.settings*') ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300' }}"
+                href="{{ route('admin.settings') }}">
+                <span class="material-symbols-outlined text-xl">settings</span>
+                <span>Settings</span>
+            </a>
         @endif
     </nav>
     <div class="mt-auto p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">

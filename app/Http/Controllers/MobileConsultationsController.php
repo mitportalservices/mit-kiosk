@@ -30,6 +30,9 @@ class MobileConsultationsController extends Controller
         return [
             'id' => $c->id,
             'assigned_user_id' => $c->assigned_user_id,
+            'assigned_user_name' => $c->assignedUser?->name,
+            'assigned_user_status' => $c->assignedUser?->availability_status,
+            'assigned_user_time_availability' => $c->assignedUser?->time_availability,
             'waypoint_id' => $c->waypoint_id,
             'waypoint_name' => $c->waypoint?->name,
             'ticket_number' => $c->ticket_number,
@@ -48,7 +51,7 @@ class MobileConsultationsController extends Controller
         $user = $request->user();
 
         $items = Consultation::query()
-            ->with(['waypoint:id,name'])
+            ->with(['waypoint:id,name', 'assignedUser:id,name,role,availability_status,time_availability'])
             ->where('assigned_user_id', $user->id)
             ->orderBy('status')
             ->orderBy('created_at')

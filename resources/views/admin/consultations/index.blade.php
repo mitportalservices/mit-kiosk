@@ -66,8 +66,18 @@
                                     <div class="font-bold text-slate-800 dark:text-slate-200">{{ $c->created_at->format('M d, Y') }}</div>
                                     <div class="text-[10px] opacity-60 uppercase">{{ $c->created_at->format('h:i A') }}</div>
                                 </td>
-                                <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">
-                                    {{ $c->assignedUser->title ?? '' }} {{ $c->assignedUser->name }}
+                                <td class="px-6 py-4 text-slate-800 dark:text-slate-200">
+                                    <div class="font-bold">{{ $c->assignedUser->name ?? 'Unassigned' }}</div>
+                                    @if($c->assignedUser)
+                                        <div class="mt-1 flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full {{ $c->assignedUser->availability_status === 'away' ? 'bg-orange-500' : ($c->assignedUser->availability_status === 'busy' ? 'bg-rose-500' : 'bg-green-500') }}"></span>
+                                            <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ ucfirst($c->assignedUser->availability_status ?? 'available') }}</span>
+                                        </div>
+                                        <div class="mt-0.5 text-[10px] font-bold text-primary flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-[12px]">schedule</span>
+                                            {{ $c->assignedUser->time_availability ?: '8:00 AM - 5:00 PM' }}
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
                                     {{ optional($c->waypoint)->name ?? 'Walk-in/Unknown' }}
