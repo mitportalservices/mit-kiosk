@@ -12,7 +12,7 @@ echo Any ticket requested from the hosted kiosk will print directly to POS-58
 echo with ZERO popup dialogs and authentic thermal ESC/POS layout.
 echo.
 
-set TARGET_URL=https://laravel-web-app-msri.onrender.com
+set TARGET_URL=https://laravel-web-app-kr4g.onrender.com
 
 REM Locate Chrome
 set CHROME_BIN=""
