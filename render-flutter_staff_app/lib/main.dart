@@ -16,7 +16,8 @@ class StaffApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Staff App Render',
+      title: 'MIT Staff Portal',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,
     );

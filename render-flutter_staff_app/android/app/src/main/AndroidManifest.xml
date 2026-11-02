@@ -1,12 +1,15 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Staff App Render"
+        android:label="MIT Staff Portal"
         android:name="${applicationName}"
         android:usesCleartextTraffic="true"
+        android:extractNativeLibs="true"
+        tools:replace="android:label,android:extractNativeLibs"
         android:icon="@mipmap/ic_launcher">
         <activity
-            android:name=".MainActivity"
+            android:name="com.example.flutter_staff_app.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

@@ -39,3 +39,5 @@ credentials.txt
 
 # unwanted folders
 *.apk
+!MIT-Staff-Admin-Portal.apk
+!public/MIT-Staff-Admin-Portal.apk
