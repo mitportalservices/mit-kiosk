@@ -215,7 +215,7 @@ function Build-TicketBytes([string]$displayNumber, [string]$meta) {
     & $writeBytes @(0x1B,0x21,0x00, 0x1D,0x21,0x00, 0x1B,0x47,0x00, 0x1B,0x45,0x00, 0x0A)
     & $writeStr $divider
 
-    $cleanMeta = ($meta -replace '[•·|]', ' - ').Trim()
+    $cleanMeta = ($meta -replace '[\u2022\u00B7|]', ' - ').Trim()
     $parts = $cleanMeta -split '\s+-\s+', 2
     if ($parts.Count -ge 2) {
         $staff = $parts[0].Trim().ToUpperInvariant()
