@@ -8,7 +8,12 @@ echo.
 set "BRIDGE_DIR=%LocalAppData%\MITKiosk"
 if not exist "%BRIDGE_DIR%" mkdir "%BRIDGE_DIR%"
 
-echo [1/4] Installing standalone thermal printer service to %BRIDGE_DIR%...
+echo [1/4] Stopping any old print bridge on port 18181...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":18181 " ^| findstr "LISTENING"') do (
+    taskkill /F /PID %%a >nul 2>&1
+)
+
+echo [2/4] Installing standalone thermal printer service to %BRIDGE_DIR%...
 set "BAT_SELF=%~f0"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$c = Get-Content -LiteralPath $env:BAT_SELF -Encoding UTF8; " ^
@@ -27,7 +32,7 @@ if exist "%~dp0scripts\local-printer-bridge.ps1" (
     echo sh.Run "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File " ^& Chr^(34^) ^& dir ^& "\local-printer-bridge.ps1" ^& Chr^(34^), 0, False
 ) > "%BRIDGE_DIR%\start-print-bridge.vbs"
 
-echo [2/4] Registering auto-start in Windows Startup...
+echo [3/4] Registering auto-start in Windows Startup & Chrome permissions...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$sh = New-Object -ComObject WScript.Shell; " ^
     "$startup = $sh.SpecialFolders.Item('Startup'); " ^
@@ -38,7 +43,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$lnk.Description = 'MIT Kiosk Thermal Print Bridge (port 18181)'; " ^
     "$lnk.Save()"
 
-echo [3/4] Allowing Chrome Local Network Access for silent printing...
 reg add "HKCU\Software\Policies\Google\Chrome" /v InsecurePrivateNetworkRequestsAllowed /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKCU\Software\Policies\Google\Chrome\LocalNetworkAccessAllowedForUrls" /v 1 /t REG_SZ /d "https://laravel-web-app-kr4g.onrender.com" /f >nul 2>&1
 
@@ -148,8 +152,15 @@ Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
 function Center-Line([string]$str, [int]$cols = 30, [int]$charWidth = 1, [int]$leftPad = 0) {
     $str = $str.Trim()
     $effectiveCols = [Math]::Floor($cols / [Math]::Max(1, $charWidth))
-    $pad = if ($str.Length -lt $effectiveCols) { [Math]::Floor(($effectiveCols - $str.Length) / 2) } else { 0 }
-    $totalPad = (if ($leftPad -gt 0 -and $charWidth -eq 1) { $leftPad } else { 0 }) + $pad
+    $pad = 0
+    if ($str.Length -lt $effectiveCols) {
+        $pad = [Math]::Floor(($effectiveCols - $str.Length) / 2)
+    }
+    $extraPad = 0
+    if ($leftPad -gt 0 -and $charWidth -eq 1) {
+        $extraPad = $leftPad
+    }
+    $totalPad = $extraPad + $pad
     return (' ' * $totalPad) + $str + "`r`n"
 }
 
@@ -194,7 +205,10 @@ function Build-TicketBytes([string]$displayNumber, [string]$meta) {
     & $writeStr $divider
 
     $rawNum = $displayNumber.Trim()
-    $spacedNum = if ($rawNum.Length -le 4) { ($rawNum.ToCharArray() -join ' ') } else { $rawNum }
+    $spacedNum = $rawNum
+    if ($rawNum.Length -le 4) {
+        $spacedNum = ($rawNum.ToCharArray() -join ' ')
+    }
 
     & $writeBytes @(0x0A, 0x1B,0x21,0x38, 0x1D,0x21,0x11, 0x1B,0x47,0x01) # 2x2 + Bold + Double-strike
     & $writeStr (Center-Line $spacedNum $cols 2 $leftPad)
@@ -288,8 +302,14 @@ function Read-HttpRequest([System.Net.Sockets.NetworkStream]$stream) {
     $headerStr = [System.Text.Encoding]::ASCII.GetString($headerBytes.ToArray())
     $lines = $headerStr -split "`r`n"
     $requestLine = $lines[0] -split ' '
-    $method = if ($requestLine.Count -ge 1) { $requestLine[0].ToUpperInvariant() } else { 'GET' }
-    $path   = if ($requestLine.Count -ge 2) { $requestLine[1] } else { '/' }
+    $method = 'GET'
+    if ($requestLine.Count -ge 1) {
+        $method = $requestLine[0].ToUpperInvariant()
+    }
+    $path = '/'
+    if ($requestLine.Count -ge 2) {
+        $path = $requestLine[1]
+    }
 
     $contentLength = 0
     foreach ($line in $lines) {
@@ -397,11 +417,16 @@ while ($true) {
             }
         }
 
+        $errText = $null
+        if (-not $printed) {
+            $errText = "Printer not found or offline (Win32 error $lastErr). Check USB connection."
+        }
+
         $payload = @{
             ok     = $printed
             method = 'winspool_raw'
             target = $usedTarget
-            error  = if ($printed) { $null } else { "Printer not found or offline (Win32 error $lastErr). Check USB connection." }
+            error  = $errText
         } | ConvertTo-Json -Compress
 
         if ($printed) {
