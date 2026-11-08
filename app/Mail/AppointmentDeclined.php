@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Models\AppointmentRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -19,12 +20,22 @@ class AppointmentDeclined extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Your appointment request was declined');
+        $fromAddress = (string) config('mail.from.address', 'mitportalservices@gmail.com');
+        $fromName = (string) config('mail.from.name', 'MIT Campus Portal');
+
+        return new Envelope(
+            from: new Address($fromAddress, $fromName),
+            replyTo: [new Address($fromAddress, $fromName)],
+            subject: 'MIT Campus Portal - Appointment Request Update',
+        );
     }
 
     public function content(): Content
     {
         $this->appointment->loadMissing('targetUser');
-        return new Content(view: 'emails.appointment_declined');
+        return new Content(
+            view: 'emails.appointment_declined',
+            text: 'emails.appointment_declined_plain',
+        );
     }
 }

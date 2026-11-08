@@ -2,16 +2,16 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MIT Kiosk Account Recovery</title>
+    <title>MIT Campus Portal Account Details</title>
 </head>
 <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f8fafc; padding: 24px; color: #1e293b;">
-    <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);">
-        <h2 style="margin-top: 0; color: #0f172a; font-size: 22px; font-weight: 800;">MIT Kiosk — Account Recovery & Details</h2>
+    <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0;">
+        <h2 style="margin-top: 0; color: #0f172a; font-size: 20px; font-weight: 700;">MIT Campus Portal — Account Details</h2>
         <p style="font-size: 14px; color: #475569; line-height: 1.6;">
             Hello <strong>{{ $user->name }}</strong>,
         </p>
         <p style="font-size: 14px; color: #475569; line-height: 1.6;">
-            We received a forgot password / account information request for your MIT Kiosk Staff &amp; Admin Portal account. Below is your complete account information along with your newly generated password:
+            Here are your requested account details and temporary sign-in password for the MIT Campus Staff &amp; Admin Portal:
         </p>
 
         <div style="background: #f1f5f9; border-radius: 12px; padding: 20px; margin: 24px 0;">
@@ -37,16 +37,15 @@
                     <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">{{ $user->time_availability ?: '8:00 AM - 5:00 PM' }}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 12px 0 4px 0; color: #2563eb; font-weight: 800; border-top: 1px solid #cbd5e1;">New Password:</td>
-                    <td style="padding: 12px 0 4px 0; color: #2563eb; font-size: 18px; font-weight: 900; font-family: monospace; border-top: 1px solid #cbd5e1;">{{ $newPassword }}</td>
+                    <td style="padding: 12px 0 4px 0; color: #2563eb; font-weight: 700; border-top: 1px solid #cbd5e1;">Temporary Password:</td>
+                    <td style="padding: 12px 0 4px 0; color: #2563eb; font-size: 18px; font-weight: 800; font-family: monospace; border-top: 1px solid #cbd5e1;">{{ $newPassword }}</td>
                 </tr>
             </table>
         </div>
 
         <p style="font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 0;">
-            You can now sign in to the MIT Kiosk Mobile App using your email address and the new password above. Once signed in, you can change your password anytime from your <strong>Profile</strong> screen.
+            You can now sign in to the MIT Campus Portal using your email address and the temporary password above. Once signed in, you can update your password anytime from your <strong>Profile</strong> screen.
         </p>
     </div>
 </body>
 </html>
-

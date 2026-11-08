@@ -18,8 +18,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
+  bool _sendingForgot = false;
   bool _obscurePassword = true;
   String? _error;
+  String? _successMessage;
 
   @override
   void initState() {
@@ -89,162 +91,57 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _showForgotPasswordDialog() async {
-    final emailCtrl = TextEditingController(text: _email.text.trim());
-    bool sending = false;
-    String? dialogError;
-    String? dialogSuccess;
+  Future<void> _handleForgotPassword() async {
+    final email = _email.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() {
+        _successMessage = null;
+        _error = 'Please type your email address in the Email Address box above first, then tap Forgot Password.';
+      });
+      return;
+    }
 
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Row(
-            children: [
-              Icon(Icons.lock_reset_rounded, color: AppTheme.primaryColor),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Forgot Password',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Enter the email address associated with your account. We will send all your account information and a new password directly to your email.',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                enabled: !sending && dialogSuccess == null,
-                decoration: const InputDecoration(
-                  labelText: 'Account Email Address',
-                  hintText: 'name@mit-maps.com',
-                  prefixIcon: Icon(Icons.email_outlined, size: 20),
-                ),
-              ),
-              if (dialogError != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    dialogError!,
-                    style: TextStyle(
-                      color: Colors.red.shade700,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-              if (dialogSuccess != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF5),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.mark_email_read_rounded, color: Color(0xFF059669), size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          dialogSuccess!,
-                          style: const TextStyle(
-                            color: Color(0xFF065F46),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: sending ? null : () => Navigator.pop(ctx),
-              child: Text(dialogSuccess != null ? 'Done' : 'Cancel'),
-            ),
-            if (dialogSuccess == null)
-              FilledButton.icon(
-                onPressed: sending
-                    ? null
-                    : () async {
-                        final email = emailCtrl.text.trim();
-                        if (email.isEmpty || !email.contains('@')) {
-                          setDlgState(() {
-                            dialogError = 'Please enter a valid email address.';
-                          });
-                          return;
-                        }
-                        setDlgState(() {
-                          sending = true;
-                          dialogError = null;
-                        });
-                        try {
-                          final dio = ApiClient(baseUrl: AppConfig.apiBaseUrl).dio;
-                          final api = MobileApi(dio);
-                          final msg = await api.forgotPassword(email: email);
-                          if (mounted) {
-                            _email.text = email;
-                          }
-                          setDlgState(() {
-                            sending = false;
-                            dialogSuccess = msg;
-                          });
-                        } on DioException catch (e) {
-                          final serverMsg = (e.response?.data is Map)
-                              ? (e.response?.data['message']?.toString())
-                              : null;
-                          setDlgState(() {
-                            sending = false;
-                            dialogError = serverMsg ?? 'Unable to send recovery email. Please check the email address and try again.';
-                          });
-                        } catch (_) {
-                          setDlgState(() {
-                            sending = false;
-                            dialogError = 'Unable to send recovery email. Please try again.';
-                          });
-                        }
-                      },
-                icon: sending
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.send_rounded, size: 16),
-                label: Text(sending ? 'Sending…' : 'Send to Email'),
-              ),
-          ],
-        ),
-      ),
-    );
+    setState(() {
+      _sendingForgot = true;
+      _error = null;
+      _successMessage = null;
+    });
+
+    try {
+      final dio = ApiClient(baseUrl: AppConfig.apiBaseUrl).dio;
+      final api = MobileApi(dio);
+      final msg = await api.forgotPassword(email: email);
+      if (mounted) {
+        setState(() {
+          _sendingForgot = false;
+          _successMessage = msg;
+        });
+      }
+    } on DioException catch (e) {
+      final serverMsg = (e.response?.data is Map)
+          ? (e.response?.data['message']?.toString())
+          : null;
+      if (mounted) {
+        setState(() {
+          _sendingForgot = false;
+          _error = serverMsg ?? 'Unable to send recovery email. Please check the email address and try again.';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _sendingForgot = false;
+          _error = 'Unable to send recovery email. Please try again.';
+        });
+      }
+    }
   }
 
   Future<void> _submit() async {
     setState(() {
       _loading = true;
       _error = null;
+      _successMessage = null;
     });
 
     try {
@@ -369,13 +266,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: _loading ? null : _showForgotPasswordDialog,
+                              onPressed: (_loading || _sendingForgot) ? null : _handleForgotPassword,
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               ),
-                              child: const Text(
-                                'Forgot Password?',
-                                style: TextStyle(
+                              child: Text(
+                                _sendingForgot ? 'Sending to your email…' : 'Forgot Password?',
+                                style: const TextStyle(
                                   color: AppTheme.primaryColor,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
@@ -383,6 +280,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ),
                           ),
+                          if (_successMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFECFDF5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.mark_email_read_rounded, color: Color(0xFF059669), size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _successMessage!,
+                                      style: const TextStyle(
+                                        color: Color(0xFF065F46),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           if (_error != null) ...[
                             const SizedBox(height: 16),
                             Container(

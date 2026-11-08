@@ -45,7 +45,7 @@ return [
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
             'timeout' => env('MAIL_TIMEOUT', 15),
-            'local_domain' => env('MAIL_EHLO_DOMAIN'),
+            'local_domain' => env('MAIL_EHLO_DOMAIN', 'gmail.com'),
         ],
 
         'resend' => [

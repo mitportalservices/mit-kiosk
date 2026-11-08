@@ -30,13 +30,14 @@
                 <div>
                     <label class="block text-sm font-bold text-slate-600 mb-2">Administrator Email</label>
                     <input type="email" id="login-email" name="email" value="{{ old('email') }}" data-osk="1" required class="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-slate-800 focus:ring-2 focus:ring-primary/20 transition-all font-medium" placeholder="admin@mit-maps.com">
+                    <p id="forgot-inline-error" class="mt-2 text-xs text-red-500 font-bold hidden"></p>
                     @error('email') <p class="mt-2 text-xs text-red-500 font-bold">{{ $message }}</p> @enderror
                 </div>
 
                 <div>
                     <div class="flex items-center justify-between mb-2">
                         <label class="block text-sm font-bold text-slate-600">Master Password</label>
-                        <button type="button" onclick="openForgotModal()" class="text-xs font-extrabold text-primary hover:underline">
+                        <button type="button" id="forgot-btn" onclick="submitForgotPassword()" class="text-xs font-extrabold text-primary hover:underline">
                             Forgot Password?
                         </button>
                     </div>
@@ -55,56 +56,35 @@
                 </button>
             </form>
 
-            <!-- Forgot Password Modal -->
-            <div id="forgot-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                <div class="w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl border border-slate-100">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                                <span class="material-symbols-outlined">lock_reset</span>
-                            </div>
-                            <h2 class="text-xl font-extrabold text-slate-800">Forgot Password</h2>
-                        </div>
-                        <button type="button" onclick="closeForgotModal()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500">
-                            <span class="material-symbols-outlined text-lg">close</span>
-                        </button>
-                    </div>
-                    <p class="text-xs text-slate-500 leading-relaxed mb-5">
-                        Enter your account email address. We will send all your account information and a new password directly to your Gmail.
-                    </p>
-                    <form action="{{ route('auth.forgot_password') }}" method="POST" class="space-y-4">
-                        @csrf
-                        <div>
-                            <label class="block text-xs font-bold text-slate-600 mb-2">Account Email Address</label>
-                            <input type="email" id="forgot-email" name="email" data-osk="1" required class="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium" placeholder="admin@mit-maps.com">
-                        </div>
-                        <div class="flex items-center justify-end gap-3 pt-2">
-                            <button type="button" onclick="closeForgotModal()" class="px-5 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200 transition-all">
-                                Cancel
-                            </button>
-                            <button type="submit" class="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-blue-600 text-white font-bold text-xs shadow-lg shadow-primary/20 active:scale-95 transition-all">
-                                Send to Email
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            <!-- Hidden form that directly submits the email already typed in Administrator Email -->
+            <form id="forgot-direct-form" action="{{ route('auth.forgot_password') }}" method="POST" class="hidden">
+                @csrf
+                <input type="hidden" id="forgot-email" name="email">
+            </form>
 
             <script>
-                function openForgotModal() {
+                function submitForgotPassword() {
                     const loginEmail = document.getElementById('login-email');
-                    const forgotEmail = document.getElementById('forgot-email');
-                    if (loginEmail && forgotEmail && loginEmail.value) {
-                        forgotEmail.value = loginEmail.value;
+                    const errEl = document.getElementById('forgot-inline-error');
+                    const email = (loginEmail ? loginEmail.value : '').trim();
+
+                    if (!email || !email.includes('@')) {
+                        if (errEl) {
+                            errEl.textContent = 'Please type your Administrator Email in the box above first, then click Forgot Password.';
+                            errEl.classList.remove('hidden');
+                        }
+                        if (loginEmail) loginEmail.focus();
+                        return;
                     }
-                    const modal = document.getElementById('forgot-modal');
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
-                }
-                function closeForgotModal() {
-                    const modal = document.getElementById('forgot-modal');
-                    modal.classList.add('hidden');
-                    modal.classList.remove('flex');
+
+                    if (errEl) errEl.classList.add('hidden');
+                    const btn = document.getElementById('forgot-btn');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.textContent = 'Sending to your email…';
+                    }
+                    document.getElementById('forgot-email').value = email;
+                    document.getElementById('forgot-direct-form').submit();
                 }
             </script>
 

@@ -44,7 +44,9 @@ services:
       - key: MAIL_FROM_ADDRESS
         value: mitportalservices@gmail.com
       - key: MAIL_FROM_NAME
-        value: "MIT Kiosk"
+        value: "MIT Campus Portal"
+      - key: MAIL_EHLO_DOMAIN
+        value: gmail.com
       - key: PRINTER_ENABLED
         value: "false"
       - key: KIOSK_BROWSER_PRINT_FALLBACK
