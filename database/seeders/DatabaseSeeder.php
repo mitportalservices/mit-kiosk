@@ -121,6 +121,46 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        // Requested Faculty Accounts (password: admin123)
+        $facultyAccounts = [
+            ['name' => 'JEANIE L. LAMBINO',          'email' => 'jeanielambino@gmail.com'],
+            ['name' => 'EMMARIE D. CAMAJEN',         'email' => 'emmariecamajen@gmail.com'],
+            ['name' => 'JULIE ANN MANGISEL',         'email' => 'julieannmangisel@gmail.com'],
+            ['name' => 'CHERY BORROMEO',             'email' => 'cheryborromeo@gmail.com'],
+            ['name' => 'SHANE BERGONIA',             'email' => 'shanebergonia@gmail.com'],
+            ['name' => 'KRISYL ANN BUCSIT',          'email' => 'krisylannbucsit@gmail.com'],
+            ['name' => 'SHARLINE JOYCE PERALTA',     'email' => 'sharlinejoyceperalta@gmail.com'],
+            ['name' => 'FRANCIS YLARDE',             'email' => 'francisylarde@gmail.com'],
+            ['name' => 'MARCELO S. MANANGAN',        'email' => 'marcelomanangan@gmail.com'],
+            ['name' => 'MARIA BIANCA LYDEL OSQUIZA', 'email' => 'mariabiancalydelosquiza@gmail.com'],
+            ['name' => 'MA. LUISA REYES',            'email' => 'maluisareyes@gmail.com'],
+        ];
+
+        foreach ($facultyAccounts as $acct) {
+            User::updateOrCreate(
+                ['email' => $acct['email']],
+                [
+                    'name' => $acct['name'],
+                    'title' => null,
+                    'password' => Hash::make('admin123'),
+                    'role' => 'faculty',
+                    'availability_status' => 'available',
+                ]
+            );
+        }
+
+        // Requested Guidance Counselor Account (password: admin123)
+        User::updateOrCreate(
+            ['email' => 'alexandernunez1414@gmail.com'],
+            [
+                'name' => 'LIEZEL V. DIMALIBOT',
+                'title' => null,
+                'password' => Hash::make('admin123'),
+                'role' => 'guidance_counselor',
+                'availability_status' => 'available',
+            ]
+        );
+
         // Waypoints with assigned staff (only seed initially if table is empty)
         if (\App\Models\Waypoint::count() === 0) {
             $lobby = \App\Models\Waypoint::create([
