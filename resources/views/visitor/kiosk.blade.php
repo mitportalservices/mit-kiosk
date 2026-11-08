@@ -1191,6 +1191,22 @@
             return lastError ? { status: 'failed', error: lastError } : { status: 'offline' };
         }
 
+        function showKioskPrintNotice(message) {
+            let el = document.getElementById('kiosk-print-notice');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'kiosk-print-notice';
+                el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;' +
+                    'max-width:90vw;padding:12px 18px;border-radius:14px;background:#b45309;color:#fff;' +
+                    'font:600 13px/1.4 Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25);text-align:center;';
+                document.body.appendChild(el);
+            }
+            el.textContent = message;
+            el.style.display = 'block';
+            clearTimeout(el._hideTimer);
+            el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 7000);
+        }
+
         async function printTicket(payload) {
             const errEl = document.getElementById('ticket-print-error');
             if (errEl) errEl.classList.add('hidden');
@@ -1198,25 +1214,16 @@
             const result = await sendToLocalPrintBridge(payload);
             if (result.status === 'printed') return;
 
+            // Never open the browser print window automatically (it shows a dialog and
+            // mis-aligns the 57mm ticket). Printing is done only by the local print bridge.
             if (result.status === 'failed') {
-                // The bridge is running, so do NOT open the browser dialog (it could also print twice).
                 console.warn('[Kiosk] Thermal print failed:', result.error);
-                if (errEl) {
-                    errEl.textContent = 'Printer error: ' + String(result.error);
-                    errEl.classList.remove('hidden');
-                }
+                showKioskPrintNotice('Ticket could not be printed: ' + String(result.error));
                 return;
             }
 
-            // Bridge offline: use browser printing. When Chrome is started by Launch-Kiosk.bat
-            // (dedicated profile + --kiosk-printing) this prints silently to the default printer.
-            const browserFallbackEnabled = {{ config('printer.browser_print_fallback', true) ? 'true' : 'false' }};
-            if (!browserFallbackEnabled) {
-                console.warn('[Kiosk] Local print bridge is offline and browser printing is disabled.');
-                return;
-            }
-
-            printTicketBrowser(payload.displayNumber, payload.meta);
+            console.warn('[Kiosk] Local print bridge (127.0.0.1:18181) is not running.');
+            showKioskPrintNotice('Ticket printer service is not running on this kiosk PC. Please run Install-Print-Bridge.bat.');
         }
 
         function escapeTicketHtml(value) {
@@ -1252,7 +1259,7 @@
         <style>
           @page {
             size: 57mm auto;
-            margin: 0;
+            margin: 0mm !important;
           }
           * {
             box-sizing: border-box;
@@ -1260,7 +1267,10 @@
             padding: 0;
           }
           html, body {
-            width: 57mm;
+            width: 47mm;
+            max-width: 47mm;
+            margin: 0;
+            padding: 0;
             background: #fff;
           }
           body {
@@ -1271,10 +1281,11 @@
             print-color-adjust: exact;
           }
           .ticket {
-            width: 46mm;
+            width: 45mm;
             margin: 0 auto;
             padding: 2mm 0 8mm 0;
             overflow: hidden;
+            text-align: center;
           }
           .rule {
             border-top: 1.5px dashed #000;

@@ -25,7 +25,7 @@ if errorlevel 1 (
     echo           Make sure POS-58 is set as the default Windows printer.
 ) else (
     echo Starting local thermal print service on http://127.0.0.1:18181...
-    start "MIT Kiosk Print Bridge" /MIN php -S 127.0.0.1:18181 scripts\local-printer-service.php
+    start "" wscript.exe "%~dp0scripts\start-print-bridge.vbs"
     timeout /t 2 /nobreak >nul
     curl -s -m 3 http://127.0.0.1:18181 >nul 2>&1
     if errorlevel 1 (

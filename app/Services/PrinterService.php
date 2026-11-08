@@ -71,8 +71,8 @@ class PrinterService
         $densityDark = "\x12\x23\x1F";
         $rotate90On  = "\x1B\x56\x01";      // ESC V 1 Rotate 90
         $rotate90Off = "\x1B\x56\x00";      // ESC V 0 Cancel rotate 90
-        $center      = "\x1B\x61\x01";      // ESC a 1 Center alignment
-        $fontA       = "\x1B\x4D\x00";      // ESC M 0 Standard Font A (~32 chars/line max on 57/58mm)
+        $leftAlign   = "\x1B\x61\x00";      // ESC a 0 Left alignment (we center in software for 57mm accuracy)
+        $fontA       = "\x1B\x4D\x00";      // ESC M 0 Standard Font A (~32 chars/line hardware max)
         $normalMode  = "\x1B\x21\x00\x1D\x21\x00"; // ESC ! 0 + GS ! 0: Normal 1x1 size
         $headerMode  = "\x1B\x21\x08";      // ESC ! 8: Font A, 1x1 Normal size, Bold (neat label like on screen)
         $numMode     = "\x1B\x21\x38\x1D\x21\x11"; // ESC ! 56 + GS ! 0x11: Universal Double-width (2x) + Double-height (2x) + Bold
@@ -82,12 +82,25 @@ class PrinterService
         $strikeOff   = "\x1B\x47\x00";      // ESC G 0 Double-strike OFF
         $feed        = "\x0A";
 
-        // 57mm paper: keep lines a little narrower than the 32-char maximum so nothing
-        // gets clipped or wrapped at the paper edge. Configurable via PRINTER_CHARS_PER_LINE.
-        $cols = function_exists('config') ? (int) config('printer.chars_per_line', 30) : 30;
-        $cols = max(20, min(32, $cols));
-        $wrap = $cols - 2;
-        $divider     = str_repeat('-', $cols) . "\r\n";
+        // 57mm paper sits against the left guide of a 58mm (32-col) printhead, so hardware
+        // ESC a 1 centering shifts everything slightly right. Instead, we use left alignment
+        // and software-center every line within $cols (default 30 chars) with optional $leftPad.
+        $cols    = function_exists('config') ? (int) config('printer.chars_per_line', 30) : 30;
+        $cols    = max(20, min(32, $cols));
+        $leftPad = function_exists('config') ? (int) config('printer.left_pad', 0) : 0;
+        $leftPad = max(0, min(6, $leftPad));
+        $wrap    = $cols - 2;
+
+        $centerLine = static function (string $str, int $charWidth = 1) use ($cols, $leftPad): string {
+            $str = trim($str);
+            $effectiveCols = intdiv($cols, max(1, $charWidth));
+            $len = strlen($str);
+            $pad = $len < $effectiveCols ? intdiv($effectiveCols - $len, 2) : 0;
+            $totalSpacePad = ($leftPad > 0 && $charWidth === 1 ? $leftPad : 0) + $pad;
+            return str_repeat(' ', $totalSpacePad) . $str . "\r\n";
+        };
+
+        $divider = str_repeat(' ', $leftPad) . str_repeat('-', $cols) . "\r\n";
 
         $text = $init . $heatDark . $densityDark . $fontA;
 
@@ -95,14 +108,14 @@ class PrinterService
             $text .= $rotate90On;
         }
 
-        $text .= $center;
+        $text .= $leftAlign;
 
         // Top margin
         $text .= $feed;
 
         // Header: Clean, normal-sized label matching screen's "text-xs Consultation Number"
         $text .= $divider;
-        $text .= $normalMode . $headerMode . "CONSULTATION NUMBER\r\n" . $normalMode;
+        $text .= $normalMode . $headerMode . $centerLine('CONSULTATION NUMBER') . $normalMode;
         $text .= $divider;
 
         // Ticket Number: THE HERO — Big, bold, double-width, double-height, double-strike
@@ -111,7 +124,7 @@ class PrinterService
         $spacedNum = (strlen($rawNum) <= 4) ? implode(' ', str_split($rawNum)) : $rawNum;
 
         $text .= $feed;
-        $text .= $numMode . $strikeOn . $spacedNum . "\r\n";
+        $text .= $numMode . $strikeOn . $centerLine($spacedNum, 2);
         $text .= $normalMode . $strikeOff . $boldOff;
         $text .= $feed;
 
@@ -130,7 +143,7 @@ class PrinterService
             $text .= $boldOn . $strikeOn;
             $staffLines = explode("\n", wordwrap($staff, $wrap, "\n", true));
             foreach ($staffLines as $line) {
-                $text .= trim($line) . "\r\n";
+                $text .= $centerLine($line);
             }
             $text .= $strikeOff . $boldOff;
 
@@ -138,7 +151,7 @@ class PrinterService
             if ($location !== '') {
                 $locLines = explode("\n", wordwrap($location, $wrap, "\n", true));
                 foreach ($locLines as $line) {
-                    $text .= trim($line) . "\r\n";
+                    $text .= $centerLine($line);
                 }
             }
         } else {
@@ -146,21 +159,21 @@ class PrinterService
             $text .= $boldOn . $strikeOn;
             $metaLines = explode("\n", wordwrap($cleanMeta, $wrap, "\n", true));
             foreach ($metaLines as $line) {
-                $text .= trim($line) . "\r\n";
+                $text .= $centerLine($line);
             }
             $text .= $strikeOff . $boldOff;
         }
 
         // Bottom divider & footer matching on-screen message
         $text .= $divider;
-        $text .= "Please keep this number\r\n";
+        $text .= $centerLine('Please keep this number');
         $tzName = function_exists('config') ? (string) config('printer.timezone', 'Asia/Manila') : 'Asia/Manila';
         try {
             $now = new \DateTime('now', new \DateTimeZone($tzName));
         } catch (\Exception $e) {
             $now = new \DateTime('now');
         }
-        $text .= $now->format('m/d/Y  h:i A') . "\r\n";
+        $text .= $centerLine($now->format('m/d/Y  h:i A'));
 
         // Feed enough lines (5 lines) to push past the physical tear-off bar
         $text .= $feed . $feed . $feed . $feed . $feed;

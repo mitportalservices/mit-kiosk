@@ -48,4 +48,4 @@ services:
       - key: PRINTER_ENABLED
         value: "false"
       - key: KIOSK_BROWSER_PRINT_FALLBACK
-        value: "true"
+        value: "false"
