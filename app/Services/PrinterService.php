@@ -72,7 +72,7 @@ class PrinterService
         $rotate90On  = "\x1B\x56\x01";      // ESC V 1 Rotate 90
         $rotate90Off = "\x1B\x56\x00";      // ESC V 0 Cancel rotate 90
         $center      = "\x1B\x61\x01";      // ESC a 1 Center alignment
-        $fontA       = "\x1B\x4D\x00";      // ESC M 0 Standard Font A (32 chars/line on 58mm)
+        $fontA       = "\x1B\x4D\x00";      // ESC M 0 Standard Font A (~32 chars/line max on 57/58mm)
         $normalMode  = "\x1B\x21\x00\x1D\x21\x00"; // ESC ! 0 + GS ! 0: Normal 1x1 size
         $headerMode  = "\x1B\x21\x08";      // ESC ! 8: Font A, 1x1 Normal size, Bold (neat label like on screen)
         $numMode     = "\x1B\x21\x38\x1D\x21\x11"; // ESC ! 56 + GS ! 0x11: Universal Double-width (2x) + Double-height (2x) + Bold
@@ -82,8 +82,12 @@ class PrinterService
         $strikeOff   = "\x1B\x47\x00";      // ESC G 0 Double-strike OFF
         $feed        = "\x0A";
 
-        // 32 dashes fills standard 58mm thermal paper edge-to-edge
-        $divider     = "--------------------------------\r\n";
+        // 57mm paper: keep lines a little narrower than the 32-char maximum so nothing
+        // gets clipped or wrapped at the paper edge. Configurable via PRINTER_CHARS_PER_LINE.
+        $cols = function_exists('config') ? (int) config('printer.chars_per_line', 30) : 30;
+        $cols = max(20, min(32, $cols));
+        $wrap = $cols - 2;
+        $divider     = str_repeat('-', $cols) . "\r\n";
 
         $text = $init . $heatDark . $densityDark . $fontA;
 
@@ -124,7 +128,7 @@ class PrinterService
 
             // Staff name in bold uppercase
             $text .= $boldOn . $strikeOn;
-            $staffLines = explode("\n", wordwrap($staff, 30, "\n", true));
+            $staffLines = explode("\n", wordwrap($staff, $wrap, "\n", true));
             foreach ($staffLines as $line) {
                 $text .= trim($line) . "\r\n";
             }
@@ -132,7 +136,7 @@ class PrinterService
 
             // Location
             if ($location !== '') {
-                $locLines = explode("\n", wordwrap($location, 30, "\n", true));
+                $locLines = explode("\n", wordwrap($location, $wrap, "\n", true));
                 foreach ($locLines as $line) {
                     $text .= trim($line) . "\r\n";
                 }
@@ -140,7 +144,7 @@ class PrinterService
         } else {
             // Single meta string fallback
             $text .= $boldOn . $strikeOn;
-            $metaLines = explode("\n", wordwrap($cleanMeta, 30, "\n", true));
+            $metaLines = explode("\n", wordwrap($cleanMeta, $wrap, "\n", true));
             foreach ($metaLines as $line) {
                 $text .= trim($line) . "\r\n";
             }
@@ -150,7 +154,13 @@ class PrinterService
         // Bottom divider & footer matching on-screen message
         $text .= $divider;
         $text .= "Please keep this number\r\n";
-        $text .= date('m/d/Y  h:i A') . "\r\n";
+        $tzName = function_exists('config') ? (string) config('printer.timezone', 'Asia/Manila') : 'Asia/Manila';
+        try {
+            $now = new \DateTime('now', new \DateTimeZone($tzName));
+        } catch (\Exception $e) {
+            $now = new \DateTime('now');
+        }
+        $text .= $now->format('m/d/Y  h:i A') . "\r\n";
 
         // Feed enough lines (5 lines) to push past the physical tear-off bar
         $text .= $feed . $feed . $feed . $feed . $feed;

@@ -68,41 +68,9 @@ class KioskConsultationsController extends Controller
             'error' => null,
         ];
 
-        // Optionally send a print job to the backend configured printer
-        if (config('printer.enabled')) {
-            $locationName = $consultation->waypoint ? $consultation->waypoint->name : 'Office';
-            $meta = $assigned->name . ' - ' . $locationName;
-
-            $print['attempted'] = true;
-            try {
-                $result = app(\App\Services\PrinterService::class)->printTicket(
-                    $displayNumber, 
-                    $meta, 
-                    config('printer.pc_name'), 
-                    config('printer.share_name')
-                );
-
-                if (is_array($result)) {
-                    $print['ok'] = $result['ok'] ?? null;
-                    $print['method'] = $result['method'] ?? null;
-                    $print['target'] = $result['target'] ?? null;
-                    $print['error'] = $result['error'] ?? null;
-                }
-
-                if ($print['ok'] === false) {
-                    \Illuminate\Support\Facades\Log::warning('Printer failed', [
-                        'method' => $print['method'],
-                        'target' => $print['target'],
-                        'error' => $print['error'],
-                    ]);
-                }
-            } catch (\Exception $e) {
-                // Log or ignore print error so we don't break the flow
-                \Illuminate\Support\Facades\Log::error("Printer error: " . $e->getMessage());
-                $print['ok'] = false;
-                $print['error'] = 'Printer service unavailable. Please check physical connection.';
-            }
-        }
+        // Printing is NOT done here anymore. The kiosk prints the ticket only after the
+        // student presses "Done" on the ticket screen (via the local print bridge or
+        // POST /api/kiosk/print), so the ticket is never printed twice or too early.
 
         return response()->json([
             'id' => $consultation->id,

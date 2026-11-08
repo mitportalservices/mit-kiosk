@@ -605,7 +605,7 @@
                         </div>
                         <button
                             class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center"
-                            onclick="openFeedbackModal()">
+                            onclick="finishTicket()">
                             <span class="material-symbols-outlined">close</span>
                         </button>
                     </div>
@@ -633,7 +633,7 @@
                         <div class="mt-6 space-y-3">
                             <button
                                 class="w-full py-5 rounded-2xl bg-gradient-to-r from-[#4A90E2] to-blue-600 text-white font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all"
-                                onclick="openFeedbackModal()">Done</button>
+                                onclick="finishTicket()">Done</button>
                         </div>
                     </div>
                 </div>
@@ -1133,60 +1133,114 @@
             return String(n + offset).padStart(3, '0');
         }
 
+        // Ticket waiting to be printed. It is printed only when the student presses "Done".
+        let pendingTicketPrint = null;
+
+        function finishTicket() {
+            const job = pendingTicketPrint;
+            pendingTicketPrint = null; // guarantee a single print per ticket
+            if (job) printTicket(job);
+            openFeedbackModal();
+        }
+
+        function fetchWithTimeout(url, options, ms) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), ms);
+            return fetch(url, Object.assign({}, options || {}, { signal: controller.signal }))
+                .finally(() => clearTimeout(timeoutId));
+        }
+
+        // Sends the ticket to the local Kiosk PC print bridge (Launch-Kiosk.bat, port 18181),
+        // which prints straight to the POS-58 thermal printer with NO print dialog.
+        // Returns 'printed', 'failed' (bridge is running but the printer reported an error)
+        // or 'offline' (no bridge reachable).
+        async function sendToLocalPrintBridge(payload) {
+            const body = JSON.stringify({ display_number: payload.displayNumber, meta: payload.meta });
+            const isLocalHost = ['127.0.0.1', 'localhost'].includes(window.location.hostname);
+            const targets = [{ health: 'http://127.0.0.1:18181', print: 'http://127.0.0.1:18181' }];
+            if (isLocalHost) targets.push({ health: null, print: '/api/kiosk/print' });
+
+            let lastError = null;
+            for (const t of targets) {
+                // 1) Quick health check so an offline bridge is detected fast.
+                if (t.health) {
+                    try {
+                        const h = await fetchWithTimeout(t.health, { method: 'GET' }, 1500);
+                        if (!h.ok) continue;
+                    } catch (e) {
+                        continue;
+                    }
+                }
+                // 2) Bridge is online: give the printer enough time (the Windows spooler /
+                //    PowerShell path can take a few seconds). A short timeout here used to abort
+                //    a print that was still in progress and then open the browser print dialog.
+                try {
+                    const res = await fetchWithTimeout(t.print, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body,
+                    }, 15000);
+                    const data = await res.json().catch(() => null);
+                    const ok = data && ((data.print && data.print.ok === true) || data.ok === true);
+                    if (ok) return { status: 'printed' };
+                    lastError = (data && (data.error || (data.print && data.print.error))) || 'Printer error.';
+                } catch (e) {
+                    lastError = 'Print bridge did not respond in time.';
+                }
+            }
+            return lastError ? { status: 'failed', error: lastError } : { status: 'offline' };
+        }
+
         async function printTicket(payload) {
             const errEl = document.getElementById('ticket-print-error');
             if (errEl) errEl.classList.add('hidden');
 
-            const backendOk = payload && payload.print && payload.print.ok === true;
-            if (backendOk) return;
+            const result = await sendToLocalPrintBridge(payload);
+            if (result.status === 'printed') return;
 
-            // When hosted on the cloud, check if the local Kiosk PC print bridge is running on port 18181 or 8000
-            // This prints directly via Windows winspool/UNC with ZERO dialog and ZERO delay!
-            for (const endpoint of ['http://127.0.0.1:18181', 'http://127.0.0.1:8000/api/kiosk/print']) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 700);
-                    const localRes = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            display_number: payload.displayNumber,
-                            meta: payload.meta
-                        }),
-                        signal: controller.signal
-                    });
-                    clearTimeout(timeoutId);
-                    const localData = await localRes.json();
-                    const isOk = localData && ((localData.print && localData.print.ok === true) || localData.ok === true);
-                    if (isOk) {
-                        return; // Printed silently and directly via local USB/thermal printer!
-                    }
-                } catch (localErr) {
-                    // Try next local port or fallback
+            if (result.status === 'failed') {
+                // The bridge is running, so do NOT open the browser dialog (it could also print twice).
+                console.warn('[Kiosk] Thermal print failed:', result.error);
+                if (errEl) {
+                    errEl.textContent = 'Printer error: ' + String(result.error);
+                    errEl.classList.remove('hidden');
                 }
+                return;
             }
 
+            // Bridge offline: use browser printing. When Chrome is started by Launch-Kiosk.bat
+            // (dedicated profile + --kiosk-printing) this prints silently to the default printer.
             const browserFallbackEnabled = {{ config('printer.browser_print_fallback', true) ? 'true' : 'false' }};
-            if (!browserFallbackEnabled) return;
+            if (!browserFallbackEnabled) {
+                console.warn('[Kiosk] Local print bridge is offline and browser printing is disabled.');
+                return;
+            }
 
             printTicketBrowser(payload.displayNumber, payload.meta);
         }
 
-        function printTicketBrowser(displayNumber, meta) {
-            const cleanMeta = String(meta || '').replace(/[•·|\-]/g, ' - ');
-            const parts = cleanMeta.split(' - ').map(s => s.trim()).filter(Boolean);
-            const staff = (parts[0] || meta || '').toUpperCase();
-            const loc = (parts[1] || '').toUpperCase();
+        function escapeTicketHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
-            // Spaced number (e.g., "1 0 1") to match the authentic ESC/POS thermal layout
+        // Browser-printed ticket laid out for 57mm thermal paper (~47mm printable width).
+        function printTicketBrowser(displayNumber, meta) {
+            const cleanMeta = String(meta || '').replace(/\s*[•·|]\s*|\s+-\s+/g, ' - ');
+            const parts = cleanMeta.split(' - ').map(s => s.trim()).filter(Boolean);
+            const staff = escapeTicketHtml((parts[0] || meta || '').toUpperCase());
+            const loc = escapeTicketHtml(parts.slice(1).join(' - ').toUpperCase());
+
+            // Spaced number (e.g., "1 0 1") to match the ESC/POS thermal layout
             const rawNum = String(displayNumber || '').trim();
-            const spacedNum = (rawNum.length <= 4) ? rawNum.split('').join(' ') : rawNum;
+            const spacedNum = escapeTicketHtml((rawNum.length <= 4) ? rawNum.split('').join(' ') : rawNum);
 
             const now = new Date();
-            const timeStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) + '  ' + 
+            const timeStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) + '  ' +
                             now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
             const html = `
@@ -1197,89 +1251,86 @@
         <title>Consultation Ticket</title>
         <style>
           @page {
-            size: 58mm auto;
-            margin: 0mm !important;
+            size: 57mm auto;
+            margin: 0;
           }
           * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
           }
-          body {
-            width: 48mm;
-            max-width: 48mm;
-            margin: 0 auto;
-            padding: 1mm 0 6mm 0;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
-            font-weight: 700;
-            line-height: 1.25;
-            color: #000;
+          html, body {
+            width: 57mm;
             background: #fff;
+          }
+          body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #000;
             text-align: center;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .divider {
-            font-weight: bold;
-            white-space: nowrap;
+          .ticket {
+            width: 46mm;
+            margin: 0 auto;
+            padding: 2mm 0 8mm 0;
             overflow: hidden;
-            margin: 2px 0;
-            letter-spacing: -0.5px;
+          }
+          .rule {
+            border-top: 1.5px dashed #000;
+            margin: 1.5mm 0;
           }
           .header-label {
+            font-size: 10px;
             font-weight: 900;
-            font-size: 11px;
-            letter-spacing: 0.5px;
-            padding: 1px 0;
+            letter-spacing: 0.4px;
           }
           .number {
-            font-size: 38px;
-            font-weight: 900;
             font-family: 'Courier New', Courier, monospace;
-            line-height: 1.1;
-            margin: 4px 0;
-            letter-spacing: 3px;
+            font-size: 34px;
+            font-weight: 900;
+            line-height: 1.05;
+            letter-spacing: 1px;
+            margin: 1mm 0;
+            white-space: nowrap;
           }
           .staff {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 900;
-            text-transform: uppercase;
             line-height: 1.2;
-            word-wrap: break-word;
-            padding: 1px 0;
+            overflow-wrap: anywhere;
           }
           .location {
-            font-size: 10px;
+            font-size: 9.5px;
             font-weight: 700;
-            text-transform: uppercase;
             line-height: 1.2;
-            word-wrap: break-word;
-            margin-top: 1px;
+            margin-top: 0.5mm;
+            overflow-wrap: anywhere;
           }
           .footer-msg {
-            font-size: 9.5px;
-            font-weight: 600;
-            margin-top: 2px;
+            font-size: 9px;
+            font-weight: 700;
           }
           .footer-date {
-            font-size: 9px;
+            font-size: 8.5px;
             font-weight: 600;
-            margin-top: 1px;
+            margin-top: 0.5mm;
           }
         </style>
       </head>
       <body>
-        <div class="divider">--------------------------------</div>
-        <div class="header-label">CONSULTATION NUMBER</div>
-        <div class="divider">--------------------------------</div>
-        <div class="number">${spacedNum}</div>
-        <div class="divider">--------------------------------</div>
-        <div class="staff">${staff}</div>
-        ${loc ? `<div class="location">${loc}</div>` : ''}
-        <div class="divider">--------------------------------</div>
-        <div class="footer-msg">Please keep this number</div>
-        <div class="footer-date">${timeStr}</div>
+        <div class="ticket">
+          <div class="rule"></div>
+          <div class="header-label">CONSULTATION NUMBER</div>
+          <div class="rule"></div>
+          <div class="number">${spacedNum}</div>
+          <div class="rule"></div>
+          <div class="staff">${staff}</div>
+          ${loc ? `<div class="location">${loc}</div>` : ''}
+          <div class="rule"></div>
+          <div class="footer-msg">Please keep this number</div>
+          <div class="footer-date">${timeStr}</div>
+        </div>
       </body>
     </html>`;
 
@@ -1593,7 +1644,8 @@
             closeAllModals();
             openModal('modal-ticket');
             fireConfetti();
-            printTicket({ displayNumber, meta, print: data && data.print ? data.print : null });
+            // Print only after the student presses "Done" on the ticket screen.
+            pendingTicketPrint = { displayNumber, meta };
         } catch (e) {
             error.querySelector('.msg').textContent = 'Network error. Please try again.';
             error.classList.remove('hidden');
