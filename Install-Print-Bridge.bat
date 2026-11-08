@@ -2,9 +2,12 @@
 title MIT Kiosk - Install Print Bridge (auto-start)
 cd /d "%~dp0"
 
-where php >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] PHP was not found in PATH. Install PHP first, then run this again.
+set "PHP_BIN="
+where php >nul 2>&1 && set "PHP_BIN=php"
+if exist "C:\xampp\php\php.exe" set "PHP_BIN=C:\xampp\php\php.exe"
+
+if not defined PHP_BIN (
+    echo [ERROR] PHP was not found in PATH or C:\xampp\php\php.exe. Install PHP first, then run this again.
     pause
     exit /b 1
 )

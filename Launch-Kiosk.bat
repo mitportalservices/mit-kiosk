@@ -18,9 +18,12 @@ set KIOSK_PROFILE=%LocalAppData%\MITKiosk\ChromeProfile
 if not exist "%KIOSK_PROFILE%" mkdir "%KIOSK_PROFILE%"
 
 REM ---- 1) Start the local print bridge (direct ESC/POS to POS-58, no dialog) ----
-where php >nul 2>&1
-if errorlevel 1 (
-    echo [WARNING] PHP was not found in PATH. The direct print bridge cannot start.
+set "PHP_BIN="
+where php >nul 2>&1 && set "PHP_BIN=php"
+if exist "C:\xampp\php\php.exe" set "PHP_BIN=C:\xampp\php\php.exe"
+
+if not defined PHP_BIN (
+    echo [WARNING] PHP was not found in PATH or C:\xampp\php\php.exe.
     echo           Tickets will fall back to silent browser printing to the DEFAULT printer.
     echo           Make sure POS-58 is set as the default Windows printer.
 ) else (

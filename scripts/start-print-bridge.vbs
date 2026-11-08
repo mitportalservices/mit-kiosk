@@ -4,5 +4,12 @@ Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 root = fso.GetParentFolderName(fso.GetParentFolderName(WScript.ScriptFullName))
 sh.CurrentDirectory = root
-sh.Run "php -S 127.0.0.1:18181 scripts\local-printer-service.php", 0, False
+
+phpCmd = "php"
+If fso.FileExists("C:\xampp\php\php.exe") Then
+    phpCmd = Chr(34) & "C:\xampp\php\php.exe" & Chr(34)
+End If
+
+sh.Run phpCmd & " -S 127.0.0.1:18181 " & Chr(34) & root & "\scripts\local-printer-service.php" & Chr(34), 0, False
+
 
