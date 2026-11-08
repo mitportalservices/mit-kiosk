@@ -2,7 +2,7 @@
 
 <p>
     Your appointment request for
-    <strong>Hon. {{ optional($appointment->targetUser)->name ?? 'the selected staff' }}</strong>
+    <strong>{{ optional($appointment->targetUser)->name ?? 'the selected staff' }}</strong>
     has been accepted and scheduled.
 </p>
 

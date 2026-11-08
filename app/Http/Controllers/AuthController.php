@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\AccountRecoveryMail;
 use App\Mail\SendOTP;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Process the first step of login (email/password).
+     * Process the first step of login (email/password) and send OTP via Gmail SMTP.
      */
     public function processLogin(Request $request)
     {
@@ -31,7 +32,8 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $email = strtolower(trim($request->email));
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
 
         if ($user && Hash::check($request->password, $user->password)) {
             // RESTRICTION: Only Admin role can login to the website/portal
@@ -39,17 +41,69 @@ class AuthController extends Controller
                 return back()->withErrors(['email' => 'Access Denied: Only administrators can access this portal.']);
             }
 
-            // Log in user directly
-            Auth::login($user);
-            $request->session()->regenerate();
+            // Generate 6-digit OTP
+            $otp = rand(111111, 999999);
 
-            $time = Carbon::now()->format('h:i A');
-            ActivityLog::record('login', "Admin User Logged In at {$time} - {$user->name}", ['channel' => 'web'], $user);
+            // Save OTP to DB with expiry (10 min)
+            $user->update([
+                'otp_code' => $otp,
+                'otp_expires_at' => Carbon::now()->addMinutes(10),
+            ]);
 
-            return redirect()->route('admin.dashboard');
+            // Store user ID temporarily in session for OTP step
+            session(['otp_user_id' => $user->id]);
+
+            // Send OTP email via Gmail SMTP
+            try {
+                Mail::to($user->email)->send(new SendOTP($otp));
+                $statusMessage = "An OTP verification code has been sent to {$user->email}.";
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('OTP Email Sending Error: ' . $e->getMessage());
+                return back()->withErrors(['email' => 'Unable to send verification code: ' . $e->getMessage()]);
+            }
+
+            return redirect()->route('auth.otp')->with('status', $statusMessage);
         }
 
         return back()->withErrors(['email' => 'Invalid credentials.']);
+    }
+
+    /**
+     * Handle Forgot Password request from the Web Admin Login screen.
+     */
+    public function forgotPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $email = strtolower(trim($validated['email']));
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if (!$user) {
+            return back()->withErrors(['email' => 'No account found with that email address.']);
+        }
+
+        $newPassword = 'MIT' . random_int(10000, 99999);
+        $user->password = Hash::make($newPassword);
+        $user->save();
+
+        $prefix = $user->isAdmin() ? "Admin User" : "Staff";
+        ActivityLog::record(
+            'forgot_password',
+            "{$prefix} Requested Account & Password Recovery via Email - {$user->name}",
+            ['email' => $user->email, 'channel' => 'web'],
+            $user
+        );
+
+        try {
+            Mail::to($user->email)->send(new AccountRecoveryMail($user, $newPassword));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Web Forgot Password Email Error: ' . $e->getMessage());
+            return back()->withErrors(['email' => 'Failed to send recovery email: ' . $e->getMessage()]);
+        }
+
+        return back()->with('status', "All account information and your new password have been sent to {$user->email}.");
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AppointmentRequest;
 use App\Models\Waypoint;
 use App\Mail\AppointmentRequested;
+use App\Mail\StaffAppointmentNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -54,6 +55,16 @@ class KioskAppointmentsController extends Controller
             Mail::to($appointment->requester_email)->send(new AppointmentRequested($appointment));
         } catch (\Throwable $e) {
             Log::error('Kiosk appointment request email failed: ' . $e->getMessage());
+        }
+
+        // Also notify the target staff member by email if they have an email address
+        try {
+            $appointment->loadMissing('targetUser');
+            if ($appointment->targetUser && !empty($appointment->targetUser->email)) {
+                Mail::to($appointment->targetUser->email)->send(new StaffAppointmentNotification($appointment));
+            }
+        } catch (\Throwable $e) {
+            Log::error('Staff appointment notification email failed: ' . $e->getMessage());
         }
 
         return response()->json($appointment, 201);

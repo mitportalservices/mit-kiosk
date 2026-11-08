@@ -17,6 +17,7 @@ Route::get('/kiosk/queue/{waypoint}', [VisitorController::class, 'queueWindow'])
 // Auth Flow
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'processLogin'])->middleware('throttle:60,1');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('auth.forgot_password')->middleware('throttle:20,1');
 Route::get('/otp', [AuthController::class, 'showOTP'])->name('auth.otp');
 Route::post('/otp', [AuthController::class, 'verifyOTP'])->middleware('throttle:60,1');
 Route::post('/otp/resend', [AuthController::class, 'resendOTP'])->name('auth.otp.resend')->middleware('throttle:60,1');
