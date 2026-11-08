@@ -57,7 +57,7 @@
             <div>
                 <h2 class="text-lg font-black font-manrope text-slate-800 dark:text-slate-100">MIT Staff &amp; Admin Mobile App</h2>
                 <p class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                    Share this link with your groupmates or staff to download and install the Android APK directly onto their phones.
+                    Downloadable link for the mobile app for faculty, guidance counselors, and administrators to install the Android APK directly onto their phones.
                 </p>
             </div>
         </div>
