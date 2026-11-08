@@ -123,17 +123,17 @@ class DatabaseSeeder extends Seeder
 
         // Requested Faculty Accounts (password: admin123)
         $facultyAccounts = [
-            ['name' => 'JEANIE L. LAMBINO',          'email' => 'jeanielambino@gmail.com'],
-            ['name' => 'EMMARIE D. CAMAJEN',         'email' => 'emmariecamajen@gmail.com'],
-            ['name' => 'JULIE ANN MANGISEL',         'email' => 'julieannmangisel@gmail.com'],
-            ['name' => 'CHERY BORROMEO',             'email' => 'cheryborromeo@gmail.com'],
-            ['name' => 'SHANE BERGONIA',             'email' => 'shanebergonia@gmail.com'],
-            ['name' => 'KRISYL ANN BUCSIT',          'email' => 'krisylannbucsit@gmail.com'],
-            ['name' => 'SHARLINE JOYCE PERALTA',     'email' => 'sharlinejoyceperalta@gmail.com'],
-            ['name' => 'FRANCIS YLARDE',             'email' => 'francisylarde@gmail.com'],
-            ['name' => 'MARCELO S. MANANGAN',        'email' => 'marcelomanangan@gmail.com'],
-            ['name' => 'MARIA BIANCA LYDEL OSQUIZA', 'email' => 'mariabiancalydelosquiza@gmail.com'],
-            ['name' => 'MA. LUISA REYES',            'email' => 'maluisareyes@gmail.com'],
+            ['name' => 'Jeanie L. Lambino',          'email' => 'jeanielambino@gmail.com'],
+            ['name' => 'Emmarie D. Camajen',         'email' => 'emmariecamajen@gmail.com'],
+            ['name' => 'Julie Ann Mangisel',         'email' => 'julieannmangisel@gmail.com'],
+            ['name' => 'Chery Borromeo',             'email' => 'cheryborromeo@gmail.com'],
+            ['name' => 'Shane Bergonia',             'email' => 'shanebergonia@gmail.com'],
+            ['name' => 'Krisyl Ann Bucsit',          'email' => 'krisylannbucsit@gmail.com'],
+            ['name' => 'Sharline Joyce Peralta',     'email' => 'sharlinejoyceperalta@gmail.com'],
+            ['name' => 'Francis Ylarde',             'email' => 'francisylarde@gmail.com'],
+            ['name' => 'Marcelo S. Manangan',        'email' => 'marcelomanangan@gmail.com'],
+            ['name' => 'Maria Bianca Lydel Osquiza', 'email' => 'mariabiancalydelosquiza@gmail.com'],
+            ['name' => 'Ma. Luisa Reyes',            'email' => 'maluisareyes@gmail.com'],
         ];
 
         foreach ($facultyAccounts as $acct) {
@@ -153,7 +153,7 @@ class DatabaseSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'alexandernunez1414@gmail.com'],
             [
-                'name' => 'LIEZEL V. DIMALIBOT',
+                'name' => 'Liezel V. Dimalibot',
                 'title' => null,
                 'password' => Hash::make('admin123'),
                 'role' => 'guidance_counselor',
