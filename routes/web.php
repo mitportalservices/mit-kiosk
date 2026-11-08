@@ -15,6 +15,14 @@ Route::get('/download-app', function () {
         'Cache-Control' => 'no-cache, must-revalidate',
     ]);
 })->name('download.apk');
+Route::get('/download-print-bridge', function () {
+    $path = base_path('Install-Print-Bridge.bat');
+    abort_unless(file_exists($path), 404, 'Print bridge installer not found.');
+    return response()->download($path, 'Install-Print-Bridge.bat', [
+        'Content-Type' => 'application/octet-stream',
+        'Cache-Control' => 'no-cache, must-revalidate',
+    ]);
+})->name('download.print_bridge');
 Route::get('/mobile', function () {
     return redirect('/mobile/index.html');
 });

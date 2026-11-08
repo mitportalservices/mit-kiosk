@@ -1,4 +1,4 @@
-# Standalone PowerShell Thermal Print Bridge for MIT Kiosk (Zero Dependencies!)
+﻿# Standalone PowerShell Thermal Print Bridge for MIT Kiosk (Zero Dependencies!)
 # Listens on http://127.0.0.1:18181 and prints directly to any POS-58 / 58mm thermal printer
 # via Windows winspool.drv RAW printing (no PHP or XAMPP required on the Mini PC!).
 
@@ -76,6 +76,7 @@ public class KioskRawPrinter {
 '@
 
 Add-Type -TypeDefinition $pinvoke -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
 
 function Center-Line([string]$str, [int]$cols = 30, [int]$charWidth = 1, [int]$leftPad = 0) {
     $str = $str.Trim()
@@ -168,68 +169,153 @@ function Build-TicketBytes([string]$displayNumber, [string]$meta) {
 
 function Resolve-PrinterCandidates {
     $list = New-Object System.Collections.Generic.List[string]
-    $list.Add('POS-58')
     try {
-        $printers = Get-CimInstance Win32_Printer -ErrorAction SilentlyContinue
-        foreach ($p in $printers) {
-            if ($p.Name -match 'POS|58|57|Thermal|Receipt|XP-|RONGTA|Xprinter') {
-                if (-not $list.Contains($p.Name)) { $list.Add($p.Name) }
+        # Fast Win32 EnumPrinters (<2ms)
+        foreach ($name in [System.Drawing.Printing.PrinterSettings]::InstalledPrinters) {
+            if ($name -match 'POS|58|57|Thermal|Receipt|XP-|RONGTA|Xprinter|Generic') {
+                if (-not $list.Contains($name)) { $list.Add($name) }
             }
         }
-        $def = $printers | Where-Object { $_.Default -eq $true } | Select-Object -First 1
-        if ($def -and -not $list.Contains($def.Name)) { $list.Add($def.Name) }
+        # If no thermal printer queue found by name yet, check USB ports via WMI & auto-provision POS-58 if needed
+        if ($list.Count -eq 0) {
+            $printers = @(Get-CimInstance Win32_Printer -ErrorAction SilentlyContinue)
+            foreach ($p in $printers) {
+                if ($p.PortName -match '^USB' -and $p.Name -notmatch 'PDF|XPS|OneNote|Fax') {
+                    if (-not $list.Contains($p.Name)) { $list.Add($p.Name) }
+                }
+            }
+            if ($list.Count -eq 0) {
+                $usbPorts = @(Get-PrinterPort -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^USB\d+' } | Sort-Object Name -Descending)
+                if ($usbPorts.Count -gt 0) {
+                    $portName = $usbPorts[0].Name
+                    Add-PrinterDriver -Name "Generic / Text Only" -ErrorAction SilentlyContinue | Out-Null
+                    Add-Printer -Name "POS-58" -DriverName "Generic / Text Only" -PortName $portName -ErrorAction SilentlyContinue | Out-Null
+                    $list.Add('POS-58')
+                }
+            }
+            $def = $printers | Where-Object { $_.Default -eq $true -and $_.Name -notmatch 'PDF|XPS|OneNote|Fax' } | Select-Object -First 1
+            if ($def -and -not $list.Contains($def.Name)) { $list.Add($def.Name) }
+        }
     } catch {}
+    if (-not $list.Contains('POS-58')) { $list.Add('POS-58') }
     return $list
 }
 
-$listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add('http://127.0.0.1:18181/')
+function Read-HttpRequest([System.Net.Sockets.NetworkStream]$stream) {
+    $headerBytes = New-Object System.Collections.Generic.List[byte]
+    $buf = New-Object byte[] 1
+    while ($true) {
+        $read = $stream.Read($buf, 0, 1)
+        if ($read -le 0) { break }
+        $headerBytes.Add($buf[0])
+        $cnt = $headerBytes.Count
+        if ($cnt -ge 4 -and
+            $headerBytes[$cnt - 4] -eq 13 -and
+            $headerBytes[$cnt - 3] -eq 10 -and
+            $headerBytes[$cnt - 2] -eq 13 -and
+            $headerBytes[$cnt - 1] -eq 10) {
+            break
+        }
+        if ($cnt -gt 16384) { break }
+    }
+    if ($headerBytes.Count -eq 0) { return $null }
+
+    $headerStr = [System.Text.Encoding]::ASCII.GetString($headerBytes.ToArray())
+    $lines = $headerStr -split "`r`n"
+    $requestLine = $lines[0] -split ' '
+    $method = if ($requestLine.Count -ge 1) { $requestLine[0].ToUpperInvariant() } else { 'GET' }
+    $path   = if ($requestLine.Count -ge 2) { $requestLine[1] } else { '/' }
+
+    $contentLength = 0
+    foreach ($line in $lines) {
+        if ($line -match '^Content-Length:\s*(\d+)') {
+            $contentLength = [int]$Matches[1]
+        }
+    }
+
+    $bodyStr = ''
+    if ($contentLength -gt 0) {
+        $bodyBuf = New-Object byte[] $contentLength
+        $totalRead = 0
+        while ($totalRead -lt $contentLength) {
+            $r = $stream.Read($bodyBuf, $totalRead, ($contentLength - $totalRead))
+            if ($r -le 0) { break }
+            $totalRead += $r
+        }
+        $bodyStr = [System.Text.Encoding]::UTF8.GetString($bodyBuf, 0, $totalRead)
+    }
+
+    return @{
+        Method = $method
+        Path   = $path
+        Body   = $bodyStr
+    }
+}
+
+function Write-HttpResponse([System.Net.Sockets.NetworkStream]$stream, [int]$statusCode, [string]$statusText, [string]$jsonBody) {
+    $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
+    $headers = @(
+        "HTTP/1.1 $statusCode $statusText",
+        "Content-Type: application/json; charset=utf-8",
+        "Content-Length: $($bodyBytes.Length)",
+        "Access-Control-Allow-Origin: *",
+        "Access-Control-Allow-Methods: GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers: Content-Type, Accept, Origin, X-Requested-With",
+        "Access-Control-Allow-Private-Network: true",
+        "Connection: close",
+        "",
+        ""
+    ) -join "`r`n"
+    $headerBytes = [System.Text.Encoding]::ASCII.GetBytes($headers)
+    $stream.Write($headerBytes, 0, $headerBytes.Length)
+    if ($bodyBytes.Length -gt 0) {
+        $stream.Write($bodyBytes, 0, $bodyBytes.Length)
+    }
+    $stream.Flush()
+}
+
+# Use TcpListener on 127.0.0.1:18181 so it NEVER requires Administrator rights or URLACL on any Windows Mini PC
+$listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 18181)
 try {
     $listener.Start()
 } catch {
-    # Already listening on 18181
+    # Port 18181 is already active
     exit 0
 }
 
-while ($listener.IsListening) {
+while ($true) {
+    $client = $null
     try {
-        $ctx = $listener.GetContext()
-        $req = $ctx.Request
-        $res = $ctx.Response
+        $client = $listener.AcceptTcpClient()
+        $client.ReceiveTimeout = 5000
+        $client.SendTimeout = 5000
+        $stream = $client.GetStream()
 
-        $res.Headers.Add('Access-Control-Allow-Origin', '*')
-        $res.Headers.Add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        $res.Headers.Add('Access-Control-Allow-Headers', 'Content-Type, Accept')
-        $res.Headers.Add('Access-Control-Allow-Private-Network', 'true')
-        $res.ContentType = 'application/json'
-
-        if ($req.HttpMethod -eq 'OPTIONS') {
-            $res.StatusCode = 200
-            $res.Close()
+        $req = Read-HttpRequest $stream
+        if ($null -eq $req) {
+            $client.Close()
             continue
         }
 
-        if ($req.HttpMethod -eq 'GET') {
-            $buf = [System.Text.Encoding]::UTF8.GetBytes('{"status":"online","printer":"POS-58","port":18181}')
-            $res.StatusCode = 200
-            $res.OutputStream.Write($buf, 0, $buf.Length)
-            $res.Close()
+        if ($req.Method -eq 'OPTIONS') {
+            Write-HttpResponse $stream 200 'OK' '{}'
+            $client.Close()
             continue
         }
 
-        $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
-        $body = $reader.ReadToEnd()
-        $reader.Close()
+        if ($req.Method -eq 'GET') {
+            Write-HttpResponse $stream 200 'OK' '{"status":"online","printer":"POS-58","port":18181}'
+            $client.Close()
+            continue
+        }
 
-        $data = $body | ConvertFrom-Json
+        $data = $req.Body | ConvertFrom-Json
         $displayNumber = [string]$data.display_number
         $meta = [string]$data.meta
 
         if ([string]::IsNullOrWhiteSpace($displayNumber)) {
-            $buf = [System.Text.Encoding]::UTF8.GetBytes('{"ok":false,"error":"Missing display_number"}')
-            $res.StatusCode = 400
-            $res.OutputStream.Write($buf, 0, $buf.Length)
-            $res.Close()
+            Write-HttpResponse $stream 400 'Bad Request' '{"ok":false,"error":"Missing display_number"}'
+            $client.Close()
             continue
         }
 
@@ -251,15 +337,23 @@ while ($listener.IsListening) {
             ok     = $printed
             method = 'winspool_raw'
             target = $usedTarget
-            error  = if ($printed) { $null } else { "Win32 error $lastErr" }
+            error  = if ($printed) { $null } else { "Printer not found or offline (Win32 error $lastErr). Check USB connection." }
         } | ConvertTo-Json -Compress
 
-        $buf = [System.Text.Encoding]::UTF8.GetBytes($payload)
-        $res.StatusCode = if ($printed) { 200 } else { 500 }
-        $res.OutputStream.Write($buf, 0, $buf.Length)
-        $res.Close()
+        if ($printed) {
+            Write-HttpResponse $stream 200 'OK' $payload
+        } else {
+            Write-HttpResponse $stream 500 'Internal Server Error' $payload
+        }
+        $client.Close()
     } catch {
-        try { $ctx.Response.Close() } catch {}
+        try {
+            if ($null -ne $client -and $client.Connected) {
+                $errJson = @{ ok = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                Write-HttpResponse $client.GetStream() 500 'Internal Server Error' $errJson
+            }
+        } catch {}
+        try { if ($null -ne $client) { $client.Close() } } catch {}
     }
 }
 

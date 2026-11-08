@@ -1,14 +1,22 @@
 ' Starts the MIT Kiosk thermal print bridge (http://127.0.0.1:18181) hidden in the background.
-' Works on ANY Windows 10/11 PC or Mini PC:
-' - Uses PHP if installed (PATH or C:\xampp\php\php.exe)
-' - Otherwise uses the built-in Windows PowerShell bridge (scripts\local-printer-bridge.ps1) with ZERO external dependencies!
+' Works on ANY Windows 10/11 PC or Mini PC with zero external dependencies!
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
-root = fso.GetParentFolderName(fso.GetParentFolderName(WScript.ScriptFullName))
-sh.CurrentDirectory = root
+scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
+root = fso.GetParentFolderName(scriptDir)
 
-If fso.FileExists("C:\xampp\php\php.exe") Then
-    sh.Run Chr(34) & "C:\xampp\php\php.exe" & Chr(34) & " -S 127.0.0.1:18181 " & Chr(34) & root & "\scripts\local-printer-service.php" & Chr(34), 0, False
-Else
-    sh.Run "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File " & Chr(34) & root & "\scripts\local-printer-bridge.ps1" & Chr(34), 0, False
+phpBin = "C:\xampp\php\php.exe"
+phpSvc = root & "\scripts\local-printer-service.php"
+psLocal = scriptDir & "\local-printer-bridge.ps1"
+psRoot  = root & "\scripts\local-printer-bridge.ps1"
+
+If fso.FileExists(phpBin) And fso.FileExists(phpSvc) Then
+    sh.CurrentDirectory = root
+    sh.Run Chr(34) & phpBin & Chr(34) & " -S 127.0.0.1:18181 " & Chr(34) & phpSvc & Chr(34), 0, False
+ElseIf fso.FileExists(psLocal) Then
+    sh.CurrentDirectory = scriptDir
+    sh.Run "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File " & Chr(34) & psLocal & Chr(34), 0, False
+ElseIf fso.FileExists(psRoot) Then
+    sh.CurrentDirectory = root
+    sh.Run "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File " & Chr(34) & psRoot & Chr(34), 0, False
 End If

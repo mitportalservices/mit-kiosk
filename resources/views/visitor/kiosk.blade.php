@@ -1165,19 +1165,21 @@
                 // 1) Quick health check so an offline bridge is detected fast.
                 if (t.health) {
                     try {
-                        const h = await fetchWithTimeout(t.health, { method: 'GET' }, 1500);
+                        const h = await fetchWithTimeout(t.health, { method: 'GET' }, 3000);
                         if (!h.ok) continue;
                     } catch (e) {
                         continue;
                     }
                 }
-                // 2) Bridge is online: give the printer enough time (the Windows spooler /
-                //    PowerShell path can take a few seconds). A short timeout here used to abort
-                //    a print that was still in progress and then open the browser print dialog.
+                // 2) Bridge is online: send ticket using text/plain CORS simple request so Chrome
+                //    does not block or delay on Private Network preflight checks.
                 try {
+                    const headers = t.health
+                        ? { 'Content-Type': 'text/plain;charset=UTF-8', 'Accept': 'application/json' }
+                        : { 'Content-Type': 'application/json', 'Accept': 'application/json' };
                     const res = await fetchWithTimeout(t.print, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        headers,
                         body,
                     }, 15000);
                     const data = await res.json().catch(() => null);
@@ -1191,20 +1193,31 @@
             return lastError ? { status: 'failed', error: lastError } : { status: 'offline' };
         }
 
-        function showKioskPrintNotice(message) {
+        function showKioskPrintNotice(message, includeDownload = false) {
             let el = document.getElementById('kiosk-print-notice');
             if (!el) {
                 el = document.createElement('div');
                 el.id = 'kiosk-print-notice';
                 el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;' +
-                    'max-width:90vw;padding:12px 18px;border-radius:14px;background:#b45309;color:#fff;' +
+                    'max-width:92vw;padding:14px 20px;border-radius:14px;background:#b45309;color:#fff;' +
                     'font:600 13px/1.4 Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25);text-align:center;';
                 document.body.appendChild(el);
             }
-            el.textContent = message;
+            el.innerHTML = '';
+            const span = document.createElement('div');
+            span.textContent = message;
+            el.appendChild(span);
+            if (includeDownload) {
+                const link = document.createElement('a');
+                link.href = '/download-print-bridge';
+                link.textContent = '⬇ Click here to download Install-Print-Bridge.bat for this Mini PC';
+                link.style.cssText = 'display:inline-block;margin-top:8px;padding:6px 14px;border-radius:8px;' +
+                    'background:#fff;color:#92400e;font-weight:800;text-decoration:none;font-size:12px;';
+                el.appendChild(link);
+            }
             el.style.display = 'block';
             clearTimeout(el._hideTimer);
-            el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 7000);
+            el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, includeDownload ? 15000 : 7000);
         }
 
         async function printTicket(payload) {
@@ -1218,12 +1231,15 @@
             // mis-aligns the 57mm ticket). Printing is done only by the local print bridge.
             if (result.status === 'failed') {
                 console.warn('[Kiosk] Thermal print failed:', result.error);
-                showKioskPrintNotice('Ticket could not be printed: ' + String(result.error));
+                showKioskPrintNotice('Ticket could not be printed: ' + String(result.error), false);
                 return;
             }
 
             console.warn('[Kiosk] Local print bridge (127.0.0.1:18181) is not running.');
-            showKioskPrintNotice('Ticket printer service is not running on this kiosk PC. Please run Install-Print-Bridge.bat.');
+            showKioskPrintNotice(
+                'Ticket printer service is not running on this Kiosk Mini PC yet. Download & run Install-Print-Bridge.bat once on this PC:',
+                true
+            );
         }
 
         function escapeTicketHtml(value) {
