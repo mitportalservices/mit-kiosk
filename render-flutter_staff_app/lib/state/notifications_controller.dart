@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staff_app/models/appointment_request.dart';
 import 'package:flutter_staff_app/models/consultation.dart';
+import 'package:flutter_staff_app/state/native_notification_bridge.dart';
 
 class StaffNotification {
   final String id;
@@ -110,7 +111,7 @@ class NotificationsController extends Notifier<NotificationsState> {
     currentList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     if (newestPopup != null) {
-      _triggerAlertFeedback();
+      _triggerAlertFeedback(newestPopup);
       state = state.copyWith(
         notifications: currentList,
         activePopup: newestPopup,
@@ -153,7 +154,7 @@ class NotificationsController extends Notifier<NotificationsState> {
     currentList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     if (newestPopup != null) {
-      _triggerAlertFeedback();
+      _triggerAlertFeedback(newestPopup);
       state = state.copyWith(
         notifications: currentList,
         activePopup: newestPopup,
@@ -195,10 +196,16 @@ class NotificationsController extends Notifier<NotificationsState> {
     );
   }
 
-  void _triggerAlertFeedback() {
+  void _triggerAlertFeedback(StaffNotification notif) {
     try {
       HapticFeedback.heavyImpact();
       SystemSound.play(SystemSoundType.alert);
+      final idOffset = notif.type == 'appointment' ? 100000 : 200000;
+      NativeNotificationBridge.showHeadsUpNotification(
+        id: idOffset + notif.recordId,
+        title: notif.title,
+        body: notif.body,
+      );
     } catch (_) {}
   }
 

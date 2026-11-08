@@ -5,6 +5,7 @@ import 'package:flutter_staff_app/api/api_client.dart';
 import 'package:flutter_staff_app/api/mobile_api.dart';
 import 'package:flutter_staff_app/config.dart';
 import 'package:flutter_staff_app/state/app_providers.dart';
+import 'package:flutter_staff_app/state/native_notification_bridge.dart';
 import 'package:flutter_staff_app/ui/theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -152,6 +153,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         password: _password.text,
       );
       await ref.read(tokenStorageProvider).writeToken(result.token);
+      await NativeNotificationBridge.startBackgroundService(
+        token: result.token,
+        baseUrl: AppConfig.apiBaseUrl,
+        role: result.user.role,
+      );
       ref.invalidate(tokenProvider);
       ref.invalidate(meProvider);
     } catch (e) {

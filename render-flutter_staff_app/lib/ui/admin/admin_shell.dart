@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staff_app/models/appointment_request.dart';
 import 'package:flutter_staff_app/models/consultation.dart';
 import 'package:flutter_staff_app/state/app_providers.dart';
+import 'package:flutter_staff_app/state/native_notification_bridge.dart';
 import 'package:flutter_staff_app/state/notifications_controller.dart';
 import 'package:flutter_staff_app/ui/theme.dart';
 import 'package:intl/intl.dart';
@@ -172,6 +173,7 @@ class _AdminShellState extends ConsumerState<AdminShell> {
                   ),
                 );
                 if (confirm == true) {
+                  await NativeNotificationBridge.stopBackgroundService();
                   await ref.read(mobileApiProvider).logout();
                   await ref.read(tokenStorageProvider).clearToken();
                   ref.invalidate(tokenProvider);

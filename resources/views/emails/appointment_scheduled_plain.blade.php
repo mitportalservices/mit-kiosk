@@ -11,3 +11,4 @@ Details: {{ $appointment->purpose_other_text }}
 Please arrive on time. Thank you.
 
 MIT Campus Portal
+

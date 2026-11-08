@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staff_app/config.dart';
 import 'package:flutter_staff_app/state/app_providers.dart';
 import 'package:flutter_staff_app/state/appointments_controller.dart';
 import 'package:flutter_staff_app/state/consultations_controller.dart';
+import 'package:flutter_staff_app/state/native_notification_bridge.dart';
 import 'package:flutter_staff_app/state/notifications_controller.dart';
 import 'package:flutter_staff_app/ui/screens/appointments_screen.dart';
 import 'package:flutter_staff_app/ui/screens/consultations_screen.dart';
@@ -31,6 +33,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     Future.microtask(() async {
       try {
         final user = await ref.read(meProvider.future);
+        final token = await ref.read(tokenStorageProvider).readToken();
+        if (token != null && token.isNotEmpty) {
+          await NativeNotificationBridge.startBackgroundService(
+            token: token,
+            baseUrl: AppConfig.apiBaseUrl,
+            role: user.role,
+          );
+        }
         if (user.role != 'admin' && mounted) {
           ref.invalidate(notificationsControllerProvider);
           await _pollData(initial: true);

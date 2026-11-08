@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staff_app/state/app_providers.dart';
+import 'package:flutter_staff_app/state/native_notification_bridge.dart';
 import 'package:flutter_staff_app/ui/theme.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -37,6 +38,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         );
       }
     }
+    await NativeNotificationBridge.stopBackgroundService();
     await ref.read(tokenStorageProvider).clearToken();
     ref.invalidate(tokenProvider);
     ref.invalidate(meProvider);
