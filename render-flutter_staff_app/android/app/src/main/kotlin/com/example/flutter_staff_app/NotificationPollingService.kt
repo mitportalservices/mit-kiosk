@@ -344,3 +344,4 @@ class NotificationPollingService : Service() {
         }
     }
 }
+

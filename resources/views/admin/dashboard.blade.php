@@ -48,6 +48,33 @@
         </div>
     @endif
 
+    <!-- Mobile App Download Card (Android APK + iOS/Web Portal) -->
+    <div class="mb-10 p-6 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-primary shrink-0">
+                <span class="material-symbols-outlined text-3xl">smartphone</span>
+            </div>
+            <div>
+                <h2 class="text-lg font-black font-manrope text-slate-800 dark:text-slate-100">MIT Staff &amp; Admin Mobile App</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    Share this link with your groupmates or staff to download and install the Android APK directly onto their phones.
+                </p>
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{{ route('download.apk') }}"
+                class="px-5 py-3 bg-gradient-to-r from-primary to-blue-600 text-white rounded-2xl font-bold text-xs shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined text-base">download</span>
+                Download Android APK
+            </a>
+            <a href="/mobile" target="_blank"
+                class="px-5 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined text-base">open_in_new</span>
+                Open iOS / Web Portal
+            </a>
+        </div>
+    </div>
+
     <!-- Recent Activity / Waypoint Preview -->
     <section>
         <div class="flex justify-between items-center mb-6">

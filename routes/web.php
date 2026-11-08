@@ -7,6 +7,14 @@ use Illuminate\Support\Facades\Route;
 
 // Visitor/Public Routes
 Route::get('/', [VisitorController::class, 'index'])->name('visitor.kiosk');
+Route::get('/download-app', function () {
+    $path = public_path('MIT-Staff-Admin-Portal.apk');
+    abort_unless(file_exists($path), 404, 'APK file not found.');
+    return response()->download($path, 'MIT-Staff-Admin-Portal.apk', [
+        'Content-Type' => 'application/vnd.android.package-archive',
+        'Cache-Control' => 'no-cache, must-revalidate',
+    ]);
+})->name('download.apk');
 Route::get('/mobile', function () {
     return redirect('/mobile/index.html');
 });

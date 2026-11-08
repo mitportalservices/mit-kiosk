@@ -88,7 +88,11 @@
                 }
             </script>
 
-            <div class="mt-8 text-center">
+            <div class="mt-8 pt-6 border-t border-slate-100 flex flex-col items-center gap-3 text-center">
+                <a href="{{ route('download.apk') }}" class="w-full py-3 px-4 bg-blue-50 hover:bg-blue-100 text-primary rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95">
+                    <span class="material-symbols-outlined text-base">android</span>
+                    Download Staff &amp; Admin Android App (.APK)
+                </a>
                 <a href="{{ route('visitor.kiosk') }}" class="text-sm font-bold text-slate-400 hover:text-primary transition-colors flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-lg">arrow_back</span>
                     Return to Visitor Guide
