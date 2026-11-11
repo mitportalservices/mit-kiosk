@@ -145,6 +145,26 @@
                 </button>
             </form>
         </div>
+
+        <!-- Database Export & Schema Section -->
+        <div class="mt-8 bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 transition-colors">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                        <span class="material-symbols-outlined text-2xl">database</span>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-extrabold font-manrope text-slate-800 dark:text-slate-100">Database Backup & Documentation Export</h2>
+                        <p class="text-xs text-slate-400 font-medium">Download the clean SQL dump of all 8 active system tables (Users, Waypoints, Waypoint Staff, Consultations, Appointments, Feedbacks, Activity Logs, Kiosk Settings).</p>
+                    </div>
+                </div>
+                <a href="{{ route('admin.settings.export_database') }}"
+                    class="px-6 py-3 bg-slate-900 dark:bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 shrink-0">
+                    <span class="material-symbols-outlined text-lg">download</span>
+                    Export Database (.sql)
+                </a>
+            </div>
+        </div>
     </div>
 </main>
 @endsection

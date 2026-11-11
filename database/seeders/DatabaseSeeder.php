@@ -187,5 +187,21 @@ class DatabaseSeeder extends Seeder
             ]);
             $wing->assignedUsers()->sync([$faculty1->id, $faculty2->id]);
         }
+
+        // Ensure default Kiosk Settings exist so kiosk_settings table is populated
+        $defaultSettings = [
+            'service_hours_start' => '08:00',
+            'service_hours_end'   => '17:00',
+            'service_days'        => 'Monday - Friday',
+            'kiosk_title'         => 'Campus Guide - MIT',
+            'kiosk_status'        => 'online',
+            'contact_email'       => 'mitportalservices@gmail.com',
+        ];
+        foreach ($defaultSettings as $key => $val) {
+            \App\Models\KioskSetting::firstOrCreate(
+                ['key' => $key],
+                ['value' => $val]
+            );
+        }
     }
 }

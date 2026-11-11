@@ -1,4 +1,4 @@
-﻿# Standalone PowerShell Thermal Print Bridge for MIT Kiosk (Zero Dependencies!)
+# Standalone PowerShell Thermal Print Bridge for MIT Kiosk (Zero Dependencies!)
 # Listens on http://127.0.0.1:18181 and prints directly to any POS-58 / 58mm thermal printer
 # via Windows winspool.drv RAW printing (no PHP or XAMPP required on the Mini PC!).
 

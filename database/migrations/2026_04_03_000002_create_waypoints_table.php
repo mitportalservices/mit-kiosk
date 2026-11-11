@@ -19,7 +19,6 @@ return new class extends Migration
             $table->string('floor')->default('1');
             $table->string('image_url')->nullable();
             $table->string('pano_url')->nullable();
-            $table->foreignId('faculty_id')->nullable()->constrained()->onDelete('set null');
             $table->float('coordinates_x')->default(0);
             $table->float('coordinates_y')->default(0);
             $table->timestamps();

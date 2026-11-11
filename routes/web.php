@@ -87,6 +87,7 @@ Route::prefix('admin')->middleware(['auth'])->group(function () {
         Route::get('/settings', [AdminController::class, 'settings'])->name('admin.settings');
         Route::post('/settings', [AdminController::class, 'updateSettings'])->name('admin.settings.update');
         Route::post('/settings/test-email', [AdminController::class, 'testEmail'])->name('admin.settings.test_email');
+        Route::get('/settings/export-database', [AdminController::class, 'exportDatabase'])->name('admin.settings.export_database');
 
         // Activity Logs
         Route::get('/activity-logs', [AdminController::class, 'activityLogs'])->name('admin.activity_logs');

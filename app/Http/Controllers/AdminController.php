@@ -625,6 +625,78 @@ class AdminController extends Controller
         return back()->with('success', 'Kiosk settings and service hours updated successfully.');
     }
 
+    /**
+     * Export the clean 8-table database schema and data as a downloadable .sql file for documentation/backup.
+     */
+    public function exportDatabase()
+    {
+        $tables = [
+            'users',
+            'waypoints',
+            'waypoint_user',
+            'consultations',
+            'appointment_requests',
+            'feedbacks',
+            'activity_logs',
+            'kiosk_settings',
+        ];
+
+        $filename = 'mit_campus_kiosk_database_' . date('Y-m-d_His') . '.sql';
+
+        return response()->streamDownload(function () use ($tables) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "-- ============================================================\n");
+            fwrite($out, "-- MIT Campus Guide Kiosk & Staff Portal - Database Export\n");
+            fwrite($out, "-- Generated at: " . now()->toDateTimeString() . "\n");
+            fwrite($out, "-- Core System Tables: " . implode(', ', $tables) . "\n");
+            fwrite($out, "-- ============================================================\n\n");
+
+            $pdo = \Illuminate\Support\Facades\DB::connection()->getPdo();
+
+            foreach ($tables as $table) {
+                if (!\Illuminate\Support\Facades\Schema::hasTable($table)) {
+                    continue;
+                }
+
+                $columns = \Illuminate\Support\Facades\Schema::getColumnListing($table);
+                $rows = \Illuminate\Support\Facades\DB::table($table)->get();
+
+                fwrite($out, "-- ------------------------------------------------------------\n");
+                fwrite($out, "-- Table: {$table} (" . count($rows) . " rows)\n");
+                fwrite($out, "-- Columns: " . implode(', ', $columns) . "\n");
+                fwrite($out, "-- ------------------------------------------------------------\n");
+
+                foreach ($rows as $row) {
+                    $rowArr = (array) $row;
+                    $colNames = array_map(fn ($c) => "\"{$c}\"", array_keys($rowArr));
+                    $vals = array_map(function ($v) use ($pdo) {
+                        if ($v === null) {
+                            return 'NULL';
+                        }
+                        if (is_bool($v)) {
+                            return $v ? 'TRUE' : 'FALSE';
+                        }
+                        if (is_int($v) || is_float($v)) {
+                            return (string) $v;
+                        }
+                        return $pdo->quote((string) $v);
+                    }, array_values($rowArr));
+
+                    fwrite(
+                        $out,
+                        "INSERT INTO \"{$table}\" (" . implode(', ', $colNames) . ") VALUES (" . implode(', ', $vals) . ");\n"
+                    );
+                }
+                fwrite($out, "\n");
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'application/sql; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
     /** --- ACTIVITY LOGS --- */
     public function activityLogs(Request $request)
     {

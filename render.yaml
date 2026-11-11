@@ -27,6 +27,12 @@ services:
           property: connectionString
       - key: LOG_CHANNEL
         value: stderr
+      - key: SESSION_DRIVER
+        value: file
+      - key: CACHE_STORE
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
       - key: APP_KEY
         value: base64:Bzl19RPnRqU5BNIvMaJhSVG8Xs8MofxxZXzPbUUPX8I=
       - key: MAIL_MAILER

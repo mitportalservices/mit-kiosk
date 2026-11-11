@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('waypoints', function (Blueprint $table) {
             if (!Schema::hasColumn('waypoints', 'assigned_user_id')) {
-                $table->foreignId('assigned_user_id')->nullable()->constrained('users')->nullOnDelete()->after('faculty_id');
+                $table->foreignId('assigned_user_id')->nullable()->constrained('users')->nullOnDelete();
             }
         });
     }
@@ -24,4 +24,3 @@ return new class extends Migration
         });
     }
 };
-
